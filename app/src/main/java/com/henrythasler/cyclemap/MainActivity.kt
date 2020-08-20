@@ -1,7 +1,7 @@
 package com.henrythasler.cyclemap
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
 import com.mapbox.mapboxsdk.Mapbox
 import com.mapbox.mapboxsdk.maps.MapView
 import com.mapbox.mapboxsdk.maps.Style
@@ -17,8 +17,10 @@ class MainActivity : AppCompatActivity() {
 
         mapView = findViewById(R.id.mapView)
         mapView?.onCreate(savedInstanceState)
+
         mapView?.getMapAsync { mapboxMap ->
-            mapboxMap.setStyle(Style.MAPBOX_STREETS) {
+            mapboxMap.setStyle(
+                Style.Builder().fromUri("asset://cyclemap-style.json")) {
             }
         }
     }
