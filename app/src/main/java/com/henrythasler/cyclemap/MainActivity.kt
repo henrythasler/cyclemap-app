@@ -45,14 +45,10 @@ class MainActivity : AppCompatActivity() {
         mapView?.onStop()
     }
 
-    /*
-    override fun onSaveInstanceState(outState: Bundle?) {
-        if (outState != null) {
-            super.onSaveInstanceState(outState)
-            mapbox.onSaveInstanceState(outState)
-        }
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        mapView?.onSaveInstanceState(outState)
     }
-*/
 
     override fun onLowMemory() {
         super.onLowMemory()
