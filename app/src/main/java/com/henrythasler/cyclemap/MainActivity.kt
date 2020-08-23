@@ -5,6 +5,8 @@ import androidx.appcompat.app.AppCompatActivity
 import com.mapbox.mapboxsdk.Mapbox
 import com.mapbox.mapboxsdk.maps.MapView
 import com.mapbox.mapboxsdk.maps.Style
+import com.mapbox.pluginscalebar.ScaleBarOptions
+import com.mapbox.pluginscalebar.ScaleBarPlugin
 
 class MainActivity : AppCompatActivity() {
     private var mapView: MapView? = null
@@ -21,6 +23,17 @@ class MainActivity : AppCompatActivity() {
         mapView?.getMapAsync { mapboxMap ->
             mapboxMap.setStyle(
                 Style.Builder().fromUri("asset://cyclemap-style.json")) {
+                val scaleBarPlugin = ScaleBarPlugin(mapView!!, mapboxMap)
+
+                // Set the custom styling via a ScaleBarOptions object
+                val scaleBarOptions = ScaleBarOptions(this)
+                scaleBarOptions
+                    .setMetricUnit(true)
+                    .setBarHeight(15f)
+                    .setTextSize(40f)
+
+                // Create a ScaleBarOptions object to use the Plugin's default styling
+                scaleBarPlugin.create(scaleBarOptions)
             }
         }
     }
