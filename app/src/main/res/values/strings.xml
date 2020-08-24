@@ -1,4 +1,12 @@
 <resources>
     <string name="app_name">Cyclemap</string>
     <string name="mapbox_access_token">pk.eyJ1IjoibXljeWNsZW1hcCIsImEiOiJjaXJhYnoxcGEwMDRxaTlubnk3cGZpbTBmIn0.TEO9UhyyX1nFKDTwO4K1xg</string>
+    <string name="nav_header_desc">Navigation Header</string>
+    <string name="nav_header_title">Cyclemap</string>
+    <string name="nav_header_subtitle">by Henry Thasler</string>
+
+    <string name="menu_global_search">Search...</string>
+    <string name="menu_share_position">Share Map Position</string>
+    <string name="menu_my_places">My Places...</string>
+
 </resources>
