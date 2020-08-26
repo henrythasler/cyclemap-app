@@ -6,11 +6,11 @@
             android:icon="@android:drawable/ic_menu_share"
             android:title="@string/menu_share_position" />
         <item
-            android:id="@+id/second"
+            android:id="@+id/menu_global_search"
             android:icon="@android:drawable/ic_menu_search"
             android:title="@string/menu_global_search" />
         <item
-            android:id="@+id/third"
+            android:id="@+id/menu_my_places"
             android:icon="@android:drawable/ic_menu_myplaces"
             android:title="@string/menu_my_places" />
     </group>
