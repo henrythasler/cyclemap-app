@@ -1,14 +1,24 @@
 package com.henrythasler.cyclemap
 
+import android.app.Activity
+import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.mapbox.geojson.Point
 import com.mapbox.mapboxsdk.Mapbox
+import com.mapbox.mapboxsdk.camera.CameraPosition
+import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
 import com.mapbox.mapboxsdk.geometry.LatLng
 import com.mapbox.mapboxsdk.maps.MapView
 import com.mapbox.mapboxsdk.maps.MapboxMap
 import com.mapbox.mapboxsdk.maps.Style
-import com.mapbox.mapboxsdk.plugins.annotation.*
+import com.mapbox.mapboxsdk.plugins.annotation.Symbol
+import com.mapbox.mapboxsdk.plugins.annotation.SymbolManager
+import com.mapbox.mapboxsdk.plugins.annotation.SymbolOptions
+import com.mapbox.mapboxsdk.plugins.places.autocomplete.PlaceAutocomplete
+import com.mapbox.mapboxsdk.plugins.places.autocomplete.model.PlaceOptions
 import com.mapbox.pluginscalebar.ScaleBarOptions
 import com.mapbox.pluginscalebar.ScaleBarPlugin
 
@@ -18,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private var map: MapboxMap? = null
     private var symbolManager: SymbolManager? = null
     private var symbol: Symbol? = null
+    private val REQUEST_CODE_AUTOCOMPLETE: Int = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,12 +104,21 @@ class MainActivity : AppCompatActivity() {
                 true
             }
 
-//            mapboxMap.addOnMapClickListener { point ->
+            mapboxMap.addOnMapClickListener { point ->
 //                Toast.makeText(this, String.format("User clicked at: %s", point.toString()), Toast.LENGTH_LONG).show()
-//
-//                true
-//            }
 
+                val placeOptions: PlaceOptions = PlaceOptions.builder()
+                    .backgroundColor(Color.parseColor("#e0ffffff"))
+                    .proximity(Point.fromLngLat(point.latitude, point.longitude))
+                    .build()
+                val intent = PlaceAutocomplete.IntentBuilder()
+                    .accessToken(getString(R.string.mapbox_access_token))
+                    .placeOptions(placeOptions)
+                    .build(this)
+                startActivityForResult(intent, REQUEST_CODE_AUTOCOMPLETE)
+
+                true
+            }
         }
     }
 
@@ -135,5 +155,32 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         mapView?.onDestroy()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode == Activity.RESULT_OK && requestCode == REQUEST_CODE_AUTOCOMPLETE) {
+            val feature = PlaceAutocomplete.getPlace(data)
+            Toast.makeText(this, feature.text(), Toast.LENGTH_LONG).show()
+
+
+// Move map camera to the selected location
+
+
+// Move map camera to the selected location
+            map?.animateCamera(
+                CameraUpdateFactory.newCameraPosition(
+                    CameraPosition.Builder()
+                        .target(
+                            LatLng(
+                                (feature.geometry() as Point).latitude(),
+                                (feature.geometry() as Point).longitude()
+                            )
+                        )
+                        .zoom(14.0)
+                        .build()
+                ), 4000
+            )
+        }
     }
 }
