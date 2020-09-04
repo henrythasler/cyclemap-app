@@ -8,5 +8,8 @@
     <string name="menu_global_search">Search...</string>
     <string name="menu_share_position">Share Map Position</string>
     <string name="menu_my_places">My Places...</string>
+    <string name="menu_cache_manager">Chache</string>
+    <string name="menu_cache_ambient_invalidate">invalidateAmbientCache()</string>
+    <string name="menu_cache_ambient_clear">clearAmbientCache()</string>
 
 </resources>

@@ -13,5 +13,16 @@
             android:id="@+id/menu_my_places"
             android:icon="@android:drawable/ic_menu_myplaces"
             android:title="@string/menu_my_places" />
+        <item
+            android:id="@+id/menu_cache_manager"
+            android:icon="@android:drawable/ic_menu_manage"
+            android:title="@string/menu_cache_manager" >
+            <menu>
+                <item android:id="@+id/menu_cache_ambient_invalidate"
+                    android:title="@string/menu_cache_ambient_invalidate" />
+                <item android:id="@+id/menu_cache_ambient_clear"
+                    android:title="@string/menu_cache_ambient_clear" />
+            </menu>
+        </item>
     </group>
 </menu>
