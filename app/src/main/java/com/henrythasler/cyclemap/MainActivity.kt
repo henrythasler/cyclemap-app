@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
-import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
@@ -19,19 +18,27 @@ import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
 import com.mapbox.mapboxsdk.geometry.LatLng
 import com.mapbox.mapboxsdk.location.LocationComponentActivationOptions
 import com.mapbox.mapboxsdk.location.LocationComponentOptions
+import com.mapbox.mapboxsdk.location.OnCameraTrackingChangedListener
+import com.mapbox.mapboxsdk.location.OnLocationClickListener
 import com.mapbox.mapboxsdk.location.modes.CameraMode
 import com.mapbox.mapboxsdk.location.modes.RenderMode
-import com.mapbox.mapboxsdk.location.OnCameraTrackingChangedListener;
-import com.mapbox.mapboxsdk.location.OnLocationClickListener;
 import com.mapbox.mapboxsdk.maps.MapView
 import com.mapbox.mapboxsdk.maps.MapboxMap
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback
 import com.mapbox.mapboxsdk.maps.Style
 import com.mapbox.mapboxsdk.offline.OfflineManager
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.PlaceAutocomplete
-import com.mapbox.mapboxsdk.plugins.places.autocomplete.model.PlaceOptions
+import com.mapbox.mapboxsdk.style.layers.Layer
+import com.mapbox.mapboxsdk.style.layers.Property
+import com.mapbox.mapboxsdk.style.layers.PropertyFactory.visibility
 import com.mapbox.pluginscalebar.ScaleBarOptions
 import com.mapbox.pluginscalebar.ScaleBarPlugin
+import com.mapbox.search.*
+import com.mapbox.search.result.SearchResult
+import com.mapbox.search.ui.view.SearchBottomSheetView
+import com.mapbox.search.ui.view.category.Category
+import com.mapbox.search.ui.view.category.SearchCategoriesBottomSheetView
+import com.mapbox.search.ui.view.place.SearchPlaceBottomSheetView
 
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoaded, PermissionsListener, OnCameraTrackingChangedListener, OnLocationClickListener {
@@ -40,6 +47,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     private lateinit var style: Style
     private lateinit var mDrawerLayout: DrawerLayout
     private lateinit var permissionsManager: PermissionsManager
+    private lateinit var reverseGeocoding: ReverseGeocodingSearchEngine
+    private lateinit var searchRequestTask: SearchRequestTask
+
+    private lateinit var searchBottomSheetView: SearchBottomSheetView
+    private lateinit var placeBottomSheetView: SearchPlaceBottomSheetView
+    private lateinit var categoriesBottomSheetView: SearchCategoriesBottomSheetView
+
     private var isInTrackingMode: Boolean = false
 
     private val REQUEST_CODE_AUTOCOMPLETE: Int = 1
@@ -63,6 +77,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             // Handle navigation view item clicks here.
             when (menuItem.itemId) {
 
+                R.id.menu_show_hillshading -> {
+                    Toast.makeText(this, "menu_show_hillshading", Toast.LENGTH_LONG).show()
+                    val layer: Layer? = style.getLayer("hillshading")
+                    if (layer != null) {
+                        if (Property.VISIBLE == layer.visibility.getValue()) {
+                            layer.setProperties(visibility(Property.NONE))
+                        } else {
+                            layer.setProperties(visibility(Property.VISIBLE))
+                        }
+                    }
+                }
                 R.id.menu_share_position -> {
                     Toast.makeText(this, "menu_share_position", Toast.LENGTH_LONG).show()
                 }
@@ -131,6 +156,26 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             })
 
         mapView?.getMapAsync(this)
+
+        reverseGeocoding = MapboxSearchSdk.createReverseGeocodingSearchEngine()
+
+        // Search UI
+        searchBottomSheetView = findViewById<SearchBottomSheetView>(R.id.search_view)
+        placeBottomSheetView = findViewById<SearchPlaceBottomSheetView>(R.id.search_place_view)
+        categoriesBottomSheetView = findViewById<SearchCategoriesBottomSheetView>(R.id.search_categories_view)
+
+        searchBottomSheetView.initializeSearch(savedInstanceState, SearchBottomSheetView.Configuration())
+        searchBottomSheetView.isHideableByDrag = true
+
+        searchBottomSheetView.addOnCategoryClickListener { openCategory(it) }
+    }
+
+    private fun openCategory(category: Category, fromBackStack: Boolean = false) {
+        Toast.makeText(
+            this,
+            String.format("openCategory(): %s", category.toString()),
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     override fun onStart() {
@@ -165,6 +210,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
 
     override fun onDestroy() {
         super.onDestroy()
+        searchRequestTask.cancel()
         mapView?.onDestroy()
     }
 
@@ -196,19 +242,36 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             Style.Builder().fromUri("https://www.cyclemap.link/cyclemap-style.json")
         ) { style -> onStyleLoaded(style)}
 
-//        map.addOnMapClickListener { point ->
+        map.addOnMapLongClickListener {point: LatLng ->
+            val options = ReverseGeoOptions(
+                center = Point.fromLngLat(point.longitude, point.latitude),
+                limit = 1,
+                reverseMode = ReverseMode.DISTANCE,
+                types = listOf(QueryType.POI, QueryType.LOCALITY, QueryType.PLACE)
+            )
+            searchRequestTask = reverseGeocoding.search(options, searchCallback)
+            true
+        }
+
+        map.addOnMapClickListener { point ->
+            if (searchBottomSheetView.isHidden()) {
+                searchBottomSheetView.open()
+            } else {
+                searchBottomSheetView.hide()
+            }
+
 //            val placeOptions: PlaceOptions = PlaceOptions.builder()
 //                .backgroundColor(Color.parseColor("#e0ffffff"))
-//                .proximity(Point.fromLngLat(point.latitude, point.longitude))
+//                .proximity(Point.fromLngLat(point.longitude, point.latitude))
 //                .build()
 //            val intent = PlaceAutocomplete.IntentBuilder()
 //                .accessToken(getString(R.string.mapbox_access_token))
 //                .placeOptions(placeOptions)
 //                .build(this)
 //            startActivityForResult(intent, REQUEST_CODE_AUTOCOMPLETE)
-//
-//            true
-//        }
+
+            true
+        }
     }
 
     override fun onStyleLoaded(mapboxStyle: Style) {
@@ -343,6 +406,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 String.format(getString(R.string.current_location), locationComponent.lastKnownLocation?.latitude, locationComponent.lastKnownLocation?.longitude),
                 Toast.LENGTH_LONG
             ).show();
+        }
+    }
+
+    private val searchCallback = object : SearchCallback {
+        override fun onResults(results: List<SearchResult>) {
+            if (results.isEmpty()) {
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.empty_result),
+                    Toast.LENGTH_LONG
+                ).show();
+
+            } else {
+                Toast.makeText(
+                    this@MainActivity,
+                    String.format(getString(R.string.reverse_geocoding_result), results.first().type, results.first().name, results.first().address),
+                    Toast.LENGTH_LONG
+                ).show();
+            }
+        }
+        override fun onError(e: Exception) {
         }
     }
 }

@@ -14,5 +14,8 @@
     <string name="tracking_enabled">Location tracking enabled</string>
     <string name="tracking_already_enabled">Location tracking still active</string>
     <string name="current_location">lat=%.2f, lng=%.2f</string>
+    <string name="empty_result">No Results found</string>
+    <string name="reverse_geocoding_result">Type=%s\nName=%s\nAddress=%s</string>
+    <string name="menu_show_hillshading">Hillshading</string>
 
 </resources>
