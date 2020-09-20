@@ -164,8 +164,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         placeBottomSheetView = findViewById<SearchPlaceBottomSheetView>(R.id.search_place_view)
         categoriesBottomSheetView = findViewById<SearchCategoriesBottomSheetView>(R.id.search_categories_view)
 
-        searchBottomSheetView.initializeSearch(savedInstanceState, SearchBottomSheetView.Configuration())
+        val configuration = SearchBottomSheetView.Configuration(
+            hotCategories = listOf(Category.RESTAURANTS, Category.PARKING, Category.HOTEL, Category.GAS_STATION)
+        )
+        searchBottomSheetView.initializeSearch(savedInstanceState, configuration)
         searchBottomSheetView.isHideableByDrag = true
+        searchBottomSheetView.hide()
 
         searchBottomSheetView.addOnCategoryClickListener { openCategory(it) }
     }
