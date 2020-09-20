@@ -1,6 +1,8 @@
 # cyclemap-app
 android app for offline usage of vector-tiles
 
+![Screen sample](docs/screenshot.png)
+
 ## References
 
 ### Mapbox
