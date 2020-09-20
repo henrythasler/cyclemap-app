@@ -1,7 +1,5 @@
 package com.henrythasler.cyclemap
 
-import android.app.Activity
-import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.widget.Toast
@@ -27,7 +25,6 @@ import com.mapbox.mapboxsdk.maps.MapboxMap
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback
 import com.mapbox.mapboxsdk.maps.Style
 import com.mapbox.mapboxsdk.offline.OfflineManager
-import com.mapbox.mapboxsdk.plugins.places.autocomplete.PlaceAutocomplete
 import com.mapbox.mapboxsdk.style.layers.Layer
 import com.mapbox.mapboxsdk.style.layers.Property
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.visibility
@@ -35,13 +32,16 @@ import com.mapbox.pluginscalebar.ScaleBarOptions
 import com.mapbox.pluginscalebar.ScaleBarPlugin
 import com.mapbox.search.*
 import com.mapbox.search.result.SearchResult
+import com.mapbox.search.result.SearchResultType
 import com.mapbox.search.ui.view.SearchBottomSheetView
 import com.mapbox.search.ui.view.category.Category
 import com.mapbox.search.ui.view.category.SearchCategoriesBottomSheetView
 import com.mapbox.search.ui.view.place.SearchPlaceBottomSheetView
+import com.mapbox.search.ui.view.place.SearchPlace
 
 
-class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoaded, PermissionsListener, OnCameraTrackingChangedListener, OnLocationClickListener {
+class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoaded,
+    PermissionsListener, OnCameraTrackingChangedListener, OnLocationClickListener {
     private var mapView: MapView? = null
     private lateinit var map: MapboxMap
     private lateinit var style: Style
@@ -53,10 +53,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     private lateinit var searchBottomSheetView: SearchBottomSheetView
     private lateinit var placeBottomSheetView: SearchPlaceBottomSheetView
     private lateinit var categoriesBottomSheetView: SearchCategoriesBottomSheetView
+    private lateinit var cardsMediator: SearchViewBottomSheetsMediator
 
     private var isInTrackingMode: Boolean = false
-
-    private val REQUEST_CODE_AUTOCOMPLETE: Int = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -160,26 +159,111 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         reverseGeocoding = MapboxSearchSdk.createReverseGeocodingSearchEngine()
 
         // Search UI
-        searchBottomSheetView = findViewById<SearchBottomSheetView>(R.id.search_view)
-        placeBottomSheetView = findViewById<SearchPlaceBottomSheetView>(R.id.search_place_view)
-        categoriesBottomSheetView = findViewById<SearchCategoriesBottomSheetView>(R.id.search_categories_view)
+        searchBottomSheetView = findViewById(R.id.search_view)
+        placeBottomSheetView = findViewById(R.id.search_place_view)
+        categoriesBottomSheetView =
+            findViewById(R.id.search_categories_view)
 
         val configuration = SearchBottomSheetView.Configuration(
-            hotCategories = listOf(Category.RESTAURANTS, Category.PARKING, Category.HOTEL, Category.GAS_STATION)
+            hotCategories = listOf(
+                Category.RESTAURANTS,
+                Category.PARKING,
+                Category.HOTEL,
+                Category.GAS_STATION
+            )
         )
         searchBottomSheetView.initializeSearch(savedInstanceState, configuration)
         searchBottomSheetView.isHideableByDrag = true
         searchBottomSheetView.hide()
 
-        searchBottomSheetView.addOnCategoryClickListener { openCategory(it) }
-    }
+        cardsMediator = SearchViewBottomSheetsMediator(
+            searchBottomSheetView,
+            placeBottomSheetView,
+            categoriesBottomSheetView
+        )
 
-    private fun openCategory(category: Category, fromBackStack: Boolean = false) {
-        Toast.makeText(
-            this,
-            String.format("openCategory(): %s", category.toString()),
-            Toast.LENGTH_LONG
-        ).show()
+        savedInstanceState?.let {
+            cardsMediator.onRestoreInstanceState(it)
+        }
+
+        // Process bottom sheets events
+        cardsMediator.addSearchBottomSheetsEventsListener(object :
+            SearchViewBottomSheetsMediator.SearchBottomSheetsEventsListener {
+            override fun onOpenPlaceBottomSheet(place: SearchPlace) {
+                Toast.makeText(
+                    applicationContext,
+                    "onOpenPlaceBottomSheet()",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            override fun onOpenCategoriesBottomSheet(category: Category) {
+                Toast.makeText(
+                    applicationContext,
+                    "onOpenCategoriesBottomSheet()",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            override fun onBackToMainBottomSheet() {
+                Toast.makeText(
+                    applicationContext,
+                    "onBackToMainBottomSheet()",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        })
+
+        placeBottomSheetView.addOnNavigateClickListener(object :
+            SearchPlaceBottomSheetView.OnNavigateClickListener {
+            override fun onNavigateClick(searchPlace: SearchPlace) {
+                val navigateZoom = if ( listOf(SearchResultType.POI).contains(searchPlace.resultType)) {
+                    17.0
+                } else {
+                    14.0
+                }
+
+                map.animateCamera(
+                    CameraUpdateFactory.newCameraPosition(
+                        CameraPosition.Builder()
+                            .target(
+                                LatLng(
+                                    searchPlace.coordinate.latitude(),
+                                    searchPlace.coordinate.longitude()
+                                )
+                            )
+                            .zoom(navigateZoom)
+                            .build()
+                    ), 4000
+                )
+//                startActivity(IntentUtils.geoIntent(searchPlace.coordinate))
+            }
+        })
+
+        placeBottomSheetView.addOnShareClickListener(object :
+            SearchPlaceBottomSheetView.OnShareClickListener {
+            override fun onShareClick(searchPlace: SearchPlace) {
+                startActivity(IntentUtils.shareIntent(searchPlace))
+            }
+        })
+
+        categoriesBottomSheetView.addCategoryLoadingStateListener(object :
+            SearchCategoriesBottomSheetView.CategoryLoadingStateListener {
+            override fun onLoadingStart(category: Category) {}
+
+            override fun onCategoryResultsLoaded(
+                category: Category,
+                searchResults: List<SearchResult>
+            ) {
+                Toast.makeText(
+                    applicationContext,
+                    "Loaded ${searchResults.size} results for $category",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            override fun onLoadingError(category: Category) {}
+        })
     }
 
     override fun onStart() {
@@ -218,35 +302,40 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         mapView?.onDestroy()
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode == Activity.RESULT_OK && requestCode == REQUEST_CODE_AUTOCOMPLETE) {
-            val feature = PlaceAutocomplete.getPlace(data)
-            map.animateCamera(
-                CameraUpdateFactory.newCameraPosition(
-                    CameraPosition.Builder()
-                        .target(
-                            LatLng(
-                                (feature.geometry() as Point).latitude(),
-                                (feature.geometry() as Point).longitude()
-                            )
-                        )
-                        .zoom(14.0)
-                        .build()
-                ), 4000
-            )
+    override fun onBackPressed() {
+        if (!cardsMediator.handleOnBackPressed()) {
+            super.onBackPressed()
         }
     }
 
+//    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+//        super.onActivityResult(requestCode, resultCode, data)
+//        if (resultCode == Activity.RESULT_OK && requestCode == REQUEST_CODE_AUTOCOMPLETE) {
+//            val feature = PlaceAutocomplete.getPlace(data)
+//            map.animateCamera(
+//                CameraUpdateFactory.newCameraPosition(
+//                    CameraPosition.Builder()
+//                        .target(
+//                            LatLng(
+//                                (feature.geometry() as Point).latitude(),
+//                                (feature.geometry() as Point).longitude()
+//                            )
+//                        )
+//                        .zoom(14.0)
+//                        .build()
+//                ), 4000
+//            )
+//        }
+//    }
 
     override fun onMapReady(mapboxMap: MapboxMap) {
         map = mapboxMap
 
         map.setStyle(
             Style.Builder().fromUri("https://www.cyclemap.link/cyclemap-style.json")
-        ) { style -> onStyleLoaded(style)}
+        ) { style -> onStyleLoaded(style) }
 
-        map.addOnMapLongClickListener {point: LatLng ->
+        map.addOnMapLongClickListener { point: LatLng ->
             val options = ReverseGeoOptions(
                 center = Point.fromLngLat(point.longitude, point.latitude),
                 limit = 1,
@@ -389,7 +478,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             Toast.LENGTH_LONG
         ).show()
 
-        if(granted) {
+        if (granted) {
             enableLocationComponent()
         }
     }
@@ -404,10 +493,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     override fun onLocationComponentClick() {
         // Get an instance of the component
         val locationComponent = map.locationComponent
-        if(locationComponent.lastKnownLocation != null) {
+        if (locationComponent.lastKnownLocation != null) {
             Toast.makeText(
                 this,
-                String.format(getString(R.string.current_location), locationComponent.lastKnownLocation?.latitude, locationComponent.lastKnownLocation?.longitude),
+                String.format(
+                    getString(R.string.current_location),
+                    locationComponent.lastKnownLocation?.latitude,
+                    locationComponent.lastKnownLocation?.longitude
+                ),
                 Toast.LENGTH_LONG
             ).show();
         }
@@ -425,11 +518,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             } else {
                 Toast.makeText(
                     this@MainActivity,
-                    String.format(getString(R.string.reverse_geocoding_result), results.first().type, results.first().name, results.first().address),
+                    String.format(
+                        getString(R.string.reverse_geocoding_result),
+                        results.first().type,
+                        results.first().name,
+                        results.first().address
+                    ),
                     Toast.LENGTH_LONG
                 ).show();
             }
         }
+
         override fun onError(e: Exception) {
         }
     }
