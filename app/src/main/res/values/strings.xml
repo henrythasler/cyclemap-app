@@ -17,5 +17,5 @@
     <string name="empty_result">No Results found</string>
     <string name="reverse_geocoding_result">Type=%s\nName=%s\nAddress=%s</string>
     <string name="menu_show_hillshading">Hillshading</string>
-
+    <string name="mapCrosshairDescription">crosshair</string>
 </resources>

@@ -1,14 +1,22 @@
 package com.henrythasler.cyclemap
 
 import android.graphics.Color
+import android.opengl.Visibility
+import android.os.Build
 import android.os.Bundle
+import android.view.View
+import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.navigation.NavigationView
 import com.mapbox.android.core.permissions.PermissionsListener
 import com.mapbox.android.core.permissions.PermissionsManager
+import com.mapbox.android.gestures.MoveGestureDetector
+import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.mapboxsdk.Mapbox
 import com.mapbox.mapboxsdk.camera.CameraPosition
@@ -26,8 +34,11 @@ import com.mapbox.mapboxsdk.maps.OnMapReadyCallback
 import com.mapbox.mapboxsdk.maps.Style
 import com.mapbox.mapboxsdk.offline.OfflineManager
 import com.mapbox.mapboxsdk.style.layers.Layer
+import com.mapbox.mapboxsdk.style.layers.LineLayer
 import com.mapbox.mapboxsdk.style.layers.Property
+import com.mapbox.mapboxsdk.style.layers.PropertyFactory
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.visibility
+import com.mapbox.mapboxsdk.style.sources.GeoJsonSource
 import com.mapbox.pluginscalebar.ScaleBarOptions
 import com.mapbox.pluginscalebar.ScaleBarPlugin
 import com.mapbox.search.*
@@ -36,9 +47,11 @@ import com.mapbox.search.result.SearchResultType
 import com.mapbox.search.ui.view.SearchBottomSheetView
 import com.mapbox.search.ui.view.category.Category
 import com.mapbox.search.ui.view.category.SearchCategoriesBottomSheetView
-import com.mapbox.search.ui.view.place.SearchPlaceBottomSheetView
 import com.mapbox.search.ui.view.place.SearchPlace
-
+import com.mapbox.search.ui.view.place.SearchPlaceBottomSheetView
+import com.mapbox.turf.TurfConstants.UNIT_METERS
+import com.mapbox.turf.TurfMeasurement;
+import java.text.DecimalFormat
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoaded,
     PermissionsListener, OnCameraTrackingChangedListener, OnLocationClickListener {
@@ -54,6 +67,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     private lateinit var placeBottomSheetView: SearchPlaceBottomSheetView
     private lateinit var categoriesBottomSheetView: SearchCategoriesBottomSheetView
     private lateinit var cardsMediator: SearchViewBottomSheetsMediator
+    private lateinit var mapCrosshair: ImageView
+    private lateinit var mapDistance: TextView
+
+    private var measureDistance = false
+    private var distanceLine = ArrayList<Point>(2)
 
     private var isInTrackingMode: Boolean = false
 
@@ -88,7 +106,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                     }
                 }
                 R.id.menu_share_position -> {
-                    Toast.makeText(this, "menu_share_position", Toast.LENGTH_LONG).show()
+                    startActivity(IntentUtils.shareIntent(map.cameraPosition.target, map.cameraPosition.zoom))
                 }
                 R.id.menu_global_search -> {
                     Toast.makeText(this, "menu_global_search", Toast.LENGTH_LONG).show()
@@ -217,11 +235,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         placeBottomSheetView.addOnNavigateClickListener(object :
             SearchPlaceBottomSheetView.OnNavigateClickListener {
             override fun onNavigateClick(searchPlace: SearchPlace) {
-                val navigateZoom = if ( listOf(SearchResultType.POI).contains(searchPlace.resultType)) {
-                    17.0
-                } else {
-                    14.0
-                }
+                val navigateZoom =
+                    if (listOf(SearchResultType.POI).contains(searchPlace.resultType)) {
+                        17.0
+                    } else {
+                        14.0
+                    }
 
                 map.animateCamera(
                     CameraUpdateFactory.newCameraPosition(
@@ -264,6 +283,33 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
 
             override fun onLoadingError(category: Category) {}
         })
+
+        mapCrosshair = findViewById(R.id.mapCrosshair)
+        mapCrosshair.setOnClickListener{
+            if(measureDistance) {
+                measureDistance = false
+                mapDistance.visibility = View.GONE
+                distanceLine.clear()
+                val drawLineSource = style.getSourceAs<GeoJsonSource>("DRAW_LINE_LAYER_SOURCE_ID")
+                drawLineSource?.setGeoJson(LineString.fromLngLats(distanceLine))
+            }
+            else {
+                measureDistance = true
+                mapDistance.text = ""
+                mapDistance.visibility = View.VISIBLE
+                distanceLine.clear()
+                distanceLine.add(
+                    Point.fromLngLat(
+                        map.cameraPosition.target.longitude,
+                        map.cameraPosition.target.latitude
+                    )
+                )
+                distanceLine.add(distanceLine[0])
+
+            }
+        }
+
+        mapDistance = findViewById(R.id.mapDistance)
     }
 
     override fun onStart() {
@@ -328,6 +374,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
 //        }
 //    }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     override fun onMapReady(mapboxMap: MapboxMap) {
         map = mapboxMap
 
@@ -346,7 +393,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             true
         }
 
-        map.addOnMapClickListener { point ->
+        map.addOnMapClickListener {
             if (searchBottomSheetView.isHidden()) {
                 searchBottomSheetView.open()
             } else {
@@ -365,8 +412,36 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
 
             true
         }
+
+        mapboxMap.addOnMoveListener(object : MapboxMap.OnMoveListener {
+            override fun onMoveBegin(detector: MoveGestureDetector) {
+            }
+
+            override fun onMove(detector: MoveGestureDetector) {
+                if(measureDistance) {
+                    distanceLine[1] = Point.fromLngLat(
+                        map.cameraPosition.target.longitude,
+                        map.cameraPosition.target.latitude
+                    )
+
+                    val drawLineSource = style.getSourceAs<GeoJsonSource>("DRAW_LINE_LAYER_SOURCE_ID")
+                    drawLineSource?.setGeoJson(LineString.fromLngLats(distanceLine))
+                    var distance = TurfMeasurement.distance(distanceLine[0], distanceLine[1], UNIT_METERS)
+                    if(distance > 5000) {
+                        mapDistance.text = DecimalFormat("#.0 km").format(distance/1000)
+                    } else {
+                        mapDistance.text = DecimalFormat("# m").format(distance)
+                    }
+                }
+            }
+
+            override fun onMoveEnd(detector: MoveGestureDetector) {
+                // user stopped moving the map
+            }
+        })
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     override fun onStyleLoaded(mapboxStyle: Style) {
         style = mapboxStyle
 
@@ -376,18 +451,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             .setMetricUnit(true)
             .setBarHeight(15f)
             .setTextSize(40f)
-        scaleBarPlugin.create(scaleBarOptions)
-        val uiSettings = map.uiSettings
-        uiSettings.isRotateGesturesEnabled = false
+        val scaleBarWidget = scaleBarPlugin.create(scaleBarOptions)
 
-        Toast.makeText(
-            this,
-            "onStyleLoaded()",
-            Toast.LENGTH_LONG
-        ).show()
-
+        map.uiSettings.isRotateGesturesEnabled = false
         enableLocationComponent()
 
+        style.addSource( GeoJsonSource("DRAW_LINE_LAYER_SOURCE_ID"));
+        style.addLayer(
+            LineLayer("DRAW_LINE_LAYER", "DRAW_LINE_LAYER_SOURCE_ID").withProperties(
+                PropertyFactory.lineDasharray(arrayOf(.001f, 2f)),
+                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                PropertyFactory.lineWidth(5f),
+                PropertyFactory.lineColor(getColor(R.color.colorMeasureDistance))
+            )
+        )
     }
 
     @SuppressWarnings("MissingPermission")
