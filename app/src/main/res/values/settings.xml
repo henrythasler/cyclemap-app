@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <integer name="DESIRED_AMBIENT_CACHE_SIZE">500000000</integer>
+    <string name="DEFAULT_LOCATION_LNG">10.85</string>
+    <string name="DEFAULT_LOCATION_LAT">48.05</string>
+    <string name="DEFAULT_ZOOM">12</string>
 </resources>

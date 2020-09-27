@@ -18,4 +18,7 @@
     <string name="reverse_geocoding_result">Type=%s\nName=%s\nAddress=%s</string>
     <string name="menu_show_hillshading">Hillshading</string>
     <string name="mapCrosshairDescription">crosshair</string>
+    <string name="saved_latitude">latitude</string>
+    <string name="saved_longitude">longitude</string>
+    <string name="saved_zoom">zoom</string>
 </resources>

@@ -1,7 +1,7 @@
 package com.henrythasler.cyclemap
 
+import android.content.Context
 import android.graphics.Color
-import android.opengl.Visibility
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -15,7 +15,6 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.navigation.NavigationView
 import com.mapbox.android.core.permissions.PermissionsListener
 import com.mapbox.android.core.permissions.PermissionsManager
-import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.mapboxsdk.Mapbox
@@ -50,8 +49,9 @@ import com.mapbox.search.ui.view.category.SearchCategoriesBottomSheetView
 import com.mapbox.search.ui.view.place.SearchPlace
 import com.mapbox.search.ui.view.place.SearchPlaceBottomSheetView
 import com.mapbox.turf.TurfConstants.UNIT_METERS
-import com.mapbox.turf.TurfMeasurement;
+import com.mapbox.turf.TurfMeasurement
 import java.text.DecimalFormat
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoaded,
     PermissionsListener, OnCameraTrackingChangedListener, OnLocationClickListener {
@@ -106,7 +106,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                     }
                 }
                 R.id.menu_share_position -> {
-                    startActivity(IntentUtils.shareIntent(map.cameraPosition.target, map.cameraPosition.zoom))
+                    startActivity(
+                        IntentUtils.shareIntent(
+                            map.cameraPosition.target,
+                            map.cameraPosition.zoom
+                        )
+                    )
                 }
                 R.id.menu_global_search -> {
                     Toast.makeText(this, "menu_global_search", Toast.LENGTH_LONG).show()
@@ -285,17 +290,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         })
 
         mapCrosshair = findViewById(R.id.mapCrosshair)
-        mapCrosshair.setOnClickListener{
-            if(measureDistance) {
+        mapCrosshair.setOnClickListener {
+            if (measureDistance) {
                 measureDistance = false
-                mapDistance.visibility = View.GONE
+                mapDistance.visibility = View.INVISIBLE
                 distanceLine.clear()
                 val drawLineSource = style.getSourceAs<GeoJsonSource>("DRAW_LINE_LAYER_SOURCE_ID")
                 drawLineSource?.setGeoJson(LineString.fromLngLats(distanceLine))
-            }
-            else {
+            } else {
                 measureDistance = true
-                mapDistance.text = ""
+                mapDistance.text = "0 m"
                 mapDistance.visibility = View.VISIBLE
                 distanceLine.clear()
                 distanceLine.add(
@@ -335,6 +339,21 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         mapView?.onSaveInstanceState(outState)
+
+        val sharedPref = getPreferences(Context.MODE_PRIVATE)
+        with(sharedPref.edit()) {
+            var latitude = map.cameraPosition.target.latitude
+            var longitude = map.cameraPosition.target.longitude
+            var zoom = map.cameraPosition.zoom
+
+            // do NOT save Null-Island position
+            if (abs(latitude) > 0.1 && abs(longitude) > 0.1) {
+                putFloat(getString(R.string.saved_latitude), latitude.toFloat())
+                putFloat(getString(R.string.saved_longitude), longitude.toFloat())
+                putFloat(getString(R.string.saved_zoom), zoom.toFloat())
+                commit()
+            }
+        }
     }
 
     override fun onLowMemory() {
@@ -413,32 +432,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             true
         }
 
-        mapboxMap.addOnMoveListener(object : MapboxMap.OnMoveListener {
-            override fun onMoveBegin(detector: MoveGestureDetector) {
+        mapboxMap.addOnCameraMoveListener {
+            if (measureDistance) {
+                updateDistanceMeasurement()
             }
+        }
+    }
 
-            override fun onMove(detector: MoveGestureDetector) {
-                if(measureDistance) {
-                    distanceLine[1] = Point.fromLngLat(
-                        map.cameraPosition.target.longitude,
-                        map.cameraPosition.target.latitude
-                    )
+    fun updateDistanceMeasurement() {
+        distanceLine[1] = Point.fromLngLat(
+            map.cameraPosition.target.longitude,
+            map.cameraPosition.target.latitude
+        )
 
-                    val drawLineSource = style.getSourceAs<GeoJsonSource>("DRAW_LINE_LAYER_SOURCE_ID")
-                    drawLineSource?.setGeoJson(LineString.fromLngLats(distanceLine))
-                    var distance = TurfMeasurement.distance(distanceLine[0], distanceLine[1], UNIT_METERS)
-                    if(distance > 5000) {
-                        mapDistance.text = DecimalFormat("#.0 km").format(distance/1000)
-                    } else {
-                        mapDistance.text = DecimalFormat("# m").format(distance)
-                    }
-                }
-            }
-
-            override fun onMoveEnd(detector: MoveGestureDetector) {
-                // user stopped moving the map
-            }
-        })
+        val drawLineSource = style.getSourceAs<GeoJsonSource>("DRAW_LINE_LAYER_SOURCE_ID")
+        drawLineSource?.setGeoJson(LineString.fromLngLats(distanceLine))
+        var distance = TurfMeasurement.distance(distanceLine[0], distanceLine[1], UNIT_METERS)
+        if (distance > 5000) {
+            mapDistance.text = DecimalFormat("#.0 km").format(distance / 1000)
+        } else {
+            mapDistance.text = DecimalFormat("# m").format(distance)
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.M)
@@ -454,9 +468,27 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         val scaleBarWidget = scaleBarPlugin.create(scaleBarOptions)
 
         map.uiSettings.isRotateGesturesEnabled = false
+
+        // restore previous map position
+        val sharedPref = getPreferences(Context.MODE_PRIVATE)
+        var defaultLng = resources.getString(R.string.DEFAULT_LOCATION_LNG).toFloat()
+        var defaultLat = resources.getString(R.string.DEFAULT_LOCATION_LAT).toFloat()
+        var defaultZoom = resources.getString(R.string.DEFAULT_ZOOM).toFloat()
+
+        val position = CameraPosition.Builder()
+            .target(
+                LatLng(
+                    sharedPref.getFloat(getString(R.string.saved_latitude), defaultLng).toDouble(),
+                    sharedPref.getFloat(getString(R.string.saved_longitude), defaultLat).toDouble()
+                )
+            )
+            .zoom(sharedPref.getFloat(getString(R.string.saved_zoom), defaultZoom).toDouble())
+            .build()
+        map.moveCamera(CameraUpdateFactory.newCameraPosition(position));
+
         enableLocationComponent()
 
-        style.addSource( GeoJsonSource("DRAW_LINE_LAYER_SOURCE_ID"));
+        style.addSource(GeoJsonSource("DRAW_LINE_LAYER_SOURCE_ID"));
         style.addLayer(
             LineLayer("DRAW_LINE_LAYER", "DRAW_LINE_LAYER_SOURCE_ID").withProperties(
                 PropertyFactory.lineDasharray(arrayOf(.001f, 2f)),
@@ -472,12 +504,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     private fun enableLocationComponent() {
         // Check if permissions are enabled and if not request
         if (PermissionsManager.areLocationPermissionsGranted(this)) {
-
-            Toast.makeText(
-                this,
-                "Location permissions granted",
-                Toast.LENGTH_LONG
-            ).show()
 
             // Get an instance of the component
             val locationComponent = map.locationComponent
