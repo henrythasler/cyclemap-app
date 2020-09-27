@@ -1,5 +1,7 @@
 package com.henrythasler.cyclemap
 
+import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
 import android.graphics.Color
 import android.os.Build
@@ -13,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.navigation.NavigationView
+import com.mapbox.android.core.location.*
 import com.mapbox.android.core.permissions.PermissionsListener
 import com.mapbox.android.core.permissions.PermissionsManager
 import com.mapbox.geojson.LineString
@@ -50,6 +53,7 @@ import com.mapbox.search.ui.view.place.SearchPlace
 import com.mapbox.search.ui.view.place.SearchPlaceBottomSheetView
 import com.mapbox.turf.TurfConstants.UNIT_METERS
 import com.mapbox.turf.TurfMeasurement
+import java.lang.ref.WeakReference
 import java.text.DecimalFormat
 import kotlin.math.abs
 
@@ -69,6 +73,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     private lateinit var cardsMediator: SearchViewBottomSheetsMediator
     private lateinit var mapCrosshair: ImageView
     private lateinit var mapDistance: TextView
+    private val customLocationEngineCallback = CustomLocationEngineCallback(this)
+    private var locationEngine: LocationEngine? = null
 
     private var measureDistance = false
     private var distanceLine = ArrayList<Point>(2)
@@ -336,15 +342,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         mapView?.onStop()
     }
 
+    @SuppressLint("ApplySharedPref")
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         mapView?.onSaveInstanceState(outState)
 
         val sharedPref = getPreferences(Context.MODE_PRIVATE)
         with(sharedPref.edit()) {
-            var latitude = map.cameraPosition.target.latitude
-            var longitude = map.cameraPosition.target.longitude
-            var zoom = map.cameraPosition.zoom
+            val latitude = map.cameraPosition.target.latitude
+            val longitude = map.cameraPosition.target.longitude
+            val zoom = map.cameraPosition.zoom
 
             // do NOT save Null-Island position
             if (abs(latitude) > 0.1 && abs(longitude) > 0.1) {
@@ -363,6 +370,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
 
     override fun onDestroy() {
         super.onDestroy()
+        locationEngine?.removeLocationUpdates(customLocationEngineCallback);
         searchRequestTask.cancel()
         mapView?.onDestroy()
     }
@@ -447,7 +455,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
 
         val drawLineSource = style.getSourceAs<GeoJsonSource>("DRAW_LINE_LAYER_SOURCE_ID")
         drawLineSource?.setGeoJson(LineString.fromLngLats(distanceLine))
-        var distance = TurfMeasurement.distance(distanceLine[0], distanceLine[1], UNIT_METERS)
+        val distance = TurfMeasurement.distance(distanceLine[0], distanceLine[1], UNIT_METERS)
         if (distance > 5000) {
             mapDistance.text = DecimalFormat("#.0 km").format(distance / 1000)
         } else {
@@ -465,15 +473,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             .setMetricUnit(true)
             .setBarHeight(15f)
             .setTextSize(40f)
-        val scaleBarWidget = scaleBarPlugin.create(scaleBarOptions)
+        scaleBarPlugin.create(scaleBarOptions)
 
         map.uiSettings.isRotateGesturesEnabled = false
 
         // restore previous map position
         val sharedPref = getPreferences(Context.MODE_PRIVATE)
-        var defaultLng = resources.getString(R.string.DEFAULT_LOCATION_LNG).toFloat()
-        var defaultLat = resources.getString(R.string.DEFAULT_LOCATION_LAT).toFloat()
-        var defaultZoom = resources.getString(R.string.DEFAULT_ZOOM).toFloat()
+        val defaultLng = resources.getString(R.string.DEFAULT_LOCATION_LNG).toFloat()
+        val defaultLat = resources.getString(R.string.DEFAULT_LOCATION_LAT).toFloat()
+        val defaultZoom = resources.getString(R.string.DEFAULT_ZOOM).toFloat()
 
         val position = CameraPosition.Builder()
             .target(
@@ -523,22 +531,31 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 .build()
 
             // Activate with a built LocationComponentActivationOptions object
-            locationComponent?.activateLocationComponent(locationComponentActivationOptions)
+            locationComponent.activateLocationComponent(locationComponentActivationOptions)
 
             // Enable to make component visible
-            locationComponent?.isLocationComponentEnabled = true
+            locationComponent.isLocationComponentEnabled = true
 
             // Set the component's camera mode
-            locationComponent?.cameraMode = CameraMode.TRACKING
+            locationComponent.cameraMode = CameraMode.TRACKING
 
             // Set the component's render mode
-            locationComponent?.renderMode = RenderMode.COMPASS
+            locationComponent.renderMode = RenderMode.COMPASS
 
             // Add the location icon click listener
             locationComponent.addOnLocationClickListener(this);
 
             // Add the camera tracking listener. Fires if the map camera is manually moved.
             locationComponent.addOnCameraTrackingChangedListener(this);
+
+            // enable location tracking to show track on map
+            locationEngine = LocationEngineProvider.getBestLocationEngine(this)
+            val request: LocationEngineRequest = LocationEngineRequest.Builder(1000L)
+                .setPriority(LocationEngineRequest.PRIORITY_HIGH_ACCURACY)
+                .setMaxWaitTime(5000L).build()
+
+            locationEngine?.requestLocationUpdates(request, customLocationEngineCallback, mainLooper)
+            locationEngine?.getLastLocation(customLocationEngineCallback)
 
             findViewById<FloatingActionButton>(R.id.back_to_camera_tracking_mode).setOnClickListener {
                 if (!isInTrackingMode) {
@@ -563,7 +580,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 Toast.LENGTH_LONG
             ).show()
             permissionsManager = PermissionsManager(this)
-            permissionsManager?.requestLocationPermissions(this)
+            permissionsManager.requestLocationPermissions(this)
         }
     }
 
@@ -634,6 +651,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         }
 
         override fun onError(e: Exception) {
+        }
+    }
+
+    private class CustomLocationEngineCallback(activity: Activity) : LocationEngineCallback<LocationEngineResult> {
+        private val activityRef = WeakReference(activity)
+
+        override fun onSuccess(result: LocationEngineResult?) {
+            val activity: Activity? = activityRef.get()
+
+            Toast.makeText(
+                activity,
+                String.format("%.4f/%.4f", result?.lastLocation?.longitude,
+                    result?.lastLocation?.latitude
+                ),
+                Toast.LENGTH_LONG
+            ).show();
+        }
+        override fun onFailure(exception: Exception) {
         }
     }
 }
