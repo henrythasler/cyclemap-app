@@ -8,7 +8,7 @@
     <string name="menu_global_search">Search...</string>
     <string name="menu_share_position">Share Map Position</string>
     <string name="menu_my_places">My Places...</string>
-    <string name="menu_cache_manager">Chache</string>
+    <string name="menu_cache_manager">Cache</string>
     <string name="menu_cache_ambient_invalidate">invalidateAmbientCache()</string>
     <string name="menu_cache_ambient_clear">clearAmbientCache()</string>
     <string name="tracking_enabled">Location tracking enabled</string>
@@ -21,4 +21,8 @@
     <string name="saved_latitude">latitude</string>
     <string name="saved_longitude">longitude</string>
     <string name="saved_zoom">zoom</string>
+    <string name="menu_track_management">Track</string>
+    <string name="menu_track_record">start recording</string>
+    <string name="recordTrackDescription">recordTrack</string>
+    <string name="menu_track_clear">Clear track</string>
 </resources>

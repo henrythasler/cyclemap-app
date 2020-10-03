@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.widget.CheckBox
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -73,13 +74,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     private lateinit var cardsMediator: SearchViewBottomSheetsMediator
     private lateinit var mapCrosshair: ImageView
     private lateinit var mapDistance: TextView
-    private val customLocationEngineCallback = CustomLocationEngineCallback(this)
+    private lateinit var trackRecordButton: CheckBox
     private var locationEngine: LocationEngine? = null
 
     private var measureDistance = false
     private var distanceLine = ArrayList<Point>(2)
 
     private var isInTrackingMode: Boolean = false
+
+    private var enableTrackLogging = false
+    private var trackPoints = ArrayList<Point>()
+    private var customLocationEngineCallback = CustomLocationEngineCallback(this)
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -103,12 +109,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 R.id.menu_show_hillshading -> {
                     Toast.makeText(this, "menu_show_hillshading", Toast.LENGTH_LONG).show()
                     val layer: Layer? = style.getLayer("hillshading")
-                    if (layer != null) {
-                        if (Property.VISIBLE == layer.visibility.getValue()) {
-                            layer.setProperties(visibility(Property.NONE))
-                        } else {
-                            layer.setProperties(visibility(Property.VISIBLE))
-                        }
+                    if (Property.VISIBLE == layer?.visibility?.getValue()) {
+                        layer?.setProperties(visibility(Property.NONE))
+                    } else {
+                        layer?.setProperties(visibility(Property.VISIBLE))
                     }
                 }
                 R.id.menu_share_position -> {
@@ -162,6 +166,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                             ).show()
                         }
                     })
+                }
+                R.id.menu_track_record -> {
+                    toogleRecordTrack()
+                    trackRecordButton.performClick()
+                }
+                R.id.menu_track_clear -> {
+                    trackPoints.clear()
+                    style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(trackPoints))
                 }
             }
             // Add code here to update the UI based on the item selected
@@ -320,6 +332,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         }
 
         mapDistance = findViewById(R.id.mapDistance)
+
+        trackRecordButton = findViewById(R.id.recordTrack)
+        trackRecordButton.setOnCheckedChangeListener { _, isChecked ->
+            toogleRecordTrack(isChecked);
+        }
     }
 
     override fun onStart() {
@@ -381,25 +398,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         }
     }
 
-//    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-//        super.onActivityResult(requestCode, resultCode, data)
-//        if (resultCode == Activity.RESULT_OK && requestCode == REQUEST_CODE_AUTOCOMPLETE) {
-//            val feature = PlaceAutocomplete.getPlace(data)
-//            map.animateCamera(
-//                CameraUpdateFactory.newCameraPosition(
-//                    CameraPosition.Builder()
-//                        .target(
-//                            LatLng(
-//                                (feature.geometry() as Point).latitude(),
-//                                (feature.geometry() as Point).longitude()
-//                            )
-//                        )
-//                        .zoom(14.0)
-//                        .build()
-//                ), 4000
-//            )
-//        }
-//    }
 
     @RequiresApi(Build.VERSION_CODES.M)
     override fun onMapReady(mapboxMap: MapboxMap) {
@@ -426,17 +424,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             } else {
                 searchBottomSheetView.hide()
             }
-
-//            val placeOptions: PlaceOptions = PlaceOptions.builder()
-//                .backgroundColor(Color.parseColor("#e0ffffff"))
-//                .proximity(Point.fromLngLat(point.longitude, point.latitude))
-//                .build()
-//            val intent = PlaceAutocomplete.IntentBuilder()
-//                .accessToken(getString(R.string.mapbox_access_token))
-//                .placeOptions(placeOptions)
-//                .build(this)
-//            startActivityForResult(intent, REQUEST_CODE_AUTOCOMPLETE)
-
             true
         }
 
@@ -447,7 +434,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         }
     }
 
-    fun updateDistanceMeasurement() {
+    private fun toogleRecordTrack(state:Boolean=false){
+        if (enableTrackLogging) {
+            enableTrackLogging = false
+            style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(trackPoints))
+        } else {
+            enableTrackLogging = true
+        }
+    }
+
+    private fun updateDistanceMeasurement() {
         distanceLine[1] = Point.fromLngLat(
             map.cameraPosition.target.longitude,
             map.cameraPosition.target.latitude
@@ -506,6 +502,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 PropertyFactory.lineColor(getColor(R.color.colorMeasureDistance))
             )
         )
+
+        style.addSource(GeoJsonSource("DRAW_TRACK_LAYER_SOURCE_ID"));
+        style.addLayer(
+            LineLayer("DRAW_TRACK_LAYER", "DRAW_TRACK_LAYER_SOURCE_ID").withProperties(
+                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                PropertyFactory.lineWidth(10f),
+                PropertyFactory.lineColor(getColor(R.color.trackLine))
+            )
+        )
     }
 
     @SuppressWarnings("MissingPermission")
@@ -551,7 +557,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             // enable location tracking to show track on map
             locationEngine = LocationEngineProvider.getBestLocationEngine(this)
             val request: LocationEngineRequest = LocationEngineRequest.Builder(1000L)
-                .setPriority(LocationEngineRequest.PRIORITY_HIGH_ACCURACY)
+                .setPriority(LocationEngineRequest.PRIORITY_BALANCED_POWER_ACCURACY)
                 .setMaxWaitTime(5000L).build()
 
             locationEngine?.requestLocationUpdates(request, customLocationEngineCallback, mainLooper)
@@ -654,19 +660,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         }
     }
 
-    private class CustomLocationEngineCallback(activity: Activity) : LocationEngineCallback<LocationEngineResult> {
+    inner class CustomLocationEngineCallback(activity: Activity) : LocationEngineCallback<LocationEngineResult> {
         private val activityRef = WeakReference(activity)
 
         override fun onSuccess(result: LocationEngineResult?) {
             val activity: Activity? = activityRef.get()
 
-            Toast.makeText(
-                activity,
-                String.format("%.4f/%.4f", result?.lastLocation?.longitude,
-                    result?.lastLocation?.latitude
-                ),
-                Toast.LENGTH_LONG
-            ).show();
+            if(enableTrackLogging) {
+                trackPoints.add(Point.fromLngLat(result?.lastLocation?.longitude!!, result?.lastLocation?.latitude!!))
+                style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(trackPoints))
+                trackRecordButton.text = trackPoints.size.toString()
+            }
         }
         override fun onFailure(exception: Exception) {
         }

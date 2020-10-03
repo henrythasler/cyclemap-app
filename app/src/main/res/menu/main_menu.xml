@@ -20,13 +20,32 @@
             android:icon="@android:drawable/ic_menu_myplaces"
             android:title="@string/menu_my_places" />
         <item
+            android:id="@+id/menu_track_management"
+            android:icon="@android:drawable/ic_menu_manage"
+            android:title="@string/menu_track_management" >
+            <menu>
+                <item
+                    android:id="@+id/menu_track_record"
+                    android:icon="@drawable/record_24_red"
+                    android:title="@string/menu_track_record" />
+                <item
+                    android:id="@+id/menu_track_clear"
+                    android:icon="@android:drawable/ic_menu_delete"
+                    android:title="@string/menu_track_clear" />
+            </menu>
+        </item>
+        <item
             android:id="@+id/menu_cache_manager"
             android:icon="@android:drawable/ic_menu_manage"
-            android:title="@string/menu_cache_manager" >
+            android:title="@string/menu_cache_manager">
             <menu>
-                <item android:id="@+id/menu_cache_ambient_invalidate"
+                <item
+                    android:id="@+id/menu_cache_ambient_invalidate"
+                    android:icon="@drawable/record_24_grey"
                     android:title="@string/menu_cache_ambient_invalidate" />
-                <item android:id="@+id/menu_cache_ambient_clear"
+                <item
+                    android:id="@+id/menu_cache_ambient_clear"
+                    android:icon="@android:drawable/ic_menu_delete"
                     android:title="@string/menu_cache_ambient_clear" />
             </menu>
         </item>
