@@ -62,6 +62,7 @@ import com.mapbox.turf.TurfConstants.UNIT_METERS
 import com.mapbox.turf.TurfMeasurement
 import com.nbsp.materialfilepicker.MaterialFilePicker
 import com.nbsp.materialfilepicker.ui.FilePickerActivity
+import io.jenetics.jpx.GPX
 import java.lang.ref.WeakReference
 import java.text.DecimalFormat
 import java.util.regex.Pattern
@@ -94,6 +95,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     private var enableTrackLogging = false
     private var trackPoints = ArrayList<Point>()
     private var customLocationEngineCallback = CustomLocationEngineCallback(this)
+
+    private var routePoints = ArrayList<Point>()
 
 
     @RequiresApi(Build.VERSION_CODES.M)
@@ -492,7 +495,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 // Entry point path (user will start from it)
 //                        .withPath(alarmsFolder.absolutePath)
                 // Root path (user won't be able to come higher than it)
-//                .withRootPath("/storage")
+                .withRootPath("/storage")
                 // Showing hidden files
                 .withHiddenFiles(true)
                 // Want to choose only jpg images
@@ -629,6 +632,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                 PropertyFactory.lineWidth(10f),
                 PropertyFactory.lineColor(getColor(R.color.trackLine))
+            )
+        )
+
+        style.addSource(GeoJsonSource("ROUTE_LAYER_SOURCE_ID"));
+        style.addLayer(
+            LineLayer("ROUTE_LAYER", "ROUTE_LAYER_SOURCE_ID").withProperties(
+                PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+                PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                PropertyFactory.lineWidth(10f),
+                PropertyFactory.lineColor(getColor(R.color.routeLine))
             )
         )
     }
@@ -797,7 +810,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             val path = resultData.getStringExtra(FilePickerActivity.RESULT_FILE_PATH)
 
             if (path != null) {
-                Toast.makeText(this, "Picked file: ${path}.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Picked file: ${path}. ${GPX.read(path).version}", Toast.LENGTH_LONG).show()
+
+                val points = GPX.read(path).tracks
+                    .flatMap { it.segments }
+                    .flatMap { it.points }
+
+                routePoints.clear()
+                points.forEach { point ->
+                    routePoints.add(Point.fromLngLat(point.longitude.toDegrees(), point.latitude.toDegrees()))
+                }
+                style.getSourceAs<GeoJsonSource>("ROUTE_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(routePoints))
             }
         }
     }

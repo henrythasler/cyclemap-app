@@ -5,4 +5,5 @@
     <color name="colorAccent">#03DAC5</color>
     <color name="colorMeasureDistance">#F44336</color>
     <color name="trackLine">#9A00FF0A</color>
+    <color name="routeLine">#9AE91E1E</color>
 </resources>
