@@ -20,6 +20,17 @@
             android:icon="@android:drawable/ic_menu_myplaces"
             android:title="@string/menu_my_places" />
         <item
+            android:id="@+id/menu_route_management"
+            android:icon="@android:drawable/ic_menu_manage"
+            android:title="@string/menu_route_management" >
+            <menu>
+                <item
+                    android:id="@+id/menu_route_load"
+                    android:icon="@drawable/record_24_red"
+                    android:title="@string/menu_route_load" />
+            </menu>
+        </item>
+        <item
             android:id="@+id/menu_track_management"
             android:icon="@android:drawable/ic_menu_manage"
             android:title="@string/menu_track_management" >

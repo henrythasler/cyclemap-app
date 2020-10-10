@@ -1,8 +1,11 @@
 package com.henrythasler.cyclemap
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -13,6 +16,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.app.ActivityCompat.requestPermissions
+import androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale
 import androidx.drawerlayout.widget.DrawerLayout
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.navigation.NavigationView
@@ -54,8 +60,11 @@ import com.mapbox.search.ui.view.place.SearchPlace
 import com.mapbox.search.ui.view.place.SearchPlaceBottomSheetView
 import com.mapbox.turf.TurfConstants.UNIT_METERS
 import com.mapbox.turf.TurfMeasurement
+import com.nbsp.materialfilepicker.MaterialFilePicker
+import com.nbsp.materialfilepicker.ui.FilePickerActivity
 import java.lang.ref.WeakReference
 import java.text.DecimalFormat
+import java.util.regex.Pattern
 import kotlin.math.abs
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoaded,
@@ -87,6 +96,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     private var customLocationEngineCallback = CustomLocationEngineCallback(this)
 
 
+    @RequiresApi(Build.VERSION_CODES.M)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -174,6 +184,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 R.id.menu_track_clear -> {
                     trackPoints.clear()
                     style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(trackPoints))
+                }
+                R.id.menu_route_load -> {
+                    checkPermissionsAndOpenFilePicker()
                 }
             }
             // Add code here to update the UI based on the item selected
@@ -335,7 +348,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
 
         trackRecordButton = findViewById(R.id.recordTrack)
         trackRecordButton.setOnCheckedChangeListener { _, isChecked ->
-            toogleRecordTrack(isChecked);
+            toogleRecordTrack();
         }
     }
 
@@ -398,7 +411,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         }
     }
 
-
     @RequiresApi(Build.VERSION_CODES.M)
     override fun onMapReady(mapboxMap: MapboxMap) {
         map = mapboxMap
@@ -434,12 +446,119 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         }
     }
 
-    private fun toogleRecordTrack(state:Boolean=false){
+    private fun toogleRecordTrack() {
         if (enableTrackLogging) {
             enableTrackLogging = false
             style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(trackPoints))
+            Toast.makeText(
+                this@MainActivity,
+                getString(R.string.toastTrackLoggingPaused),
+                Toast.LENGTH_LONG
+            ).show()
         } else {
             enableTrackLogging = true
+            Toast.makeText(
+                this@MainActivity,
+                getString(R.string.trackLoggingActive),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+
+    private fun checkPermissionsAndOpenFilePicker() {
+
+//        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+//            addCategory(Intent.CATEGORY_OPENABLE)
+//            type = "*/*"
+//
+//            // Optionally, specify a URI for the file that should appear in the
+//            // system file picker when it loads.
+//            putExtra(DocumentsContract.EXTRA_INITIAL_URI, "/storage")
+//        }
+//        startActivityForResult(intent, FILE_PICKER_REQUEST_CODE)
+
+
+        val permissionGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        if (permissionGranted) {
+            MaterialFilePicker()
+                // Pass a source of context. Can be:
+                //    .withActivity(Activity activity)
+                //    .withFragment(Fragment fragment)
+                //    .withSupportFragment(androidx.fragment.app.Fragment fragment)
+                .withActivity(this)
+                // With cross icon on the right side of toolbar for closing picker straight away
+                .withCloseMenu(true)
+                // Entry point path (user will start from it)
+//                        .withPath(alarmsFolder.absolutePath)
+                // Root path (user won't be able to come higher than it)
+//                .withRootPath("/storage")
+                // Showing hidden files
+                .withHiddenFiles(true)
+                // Want to choose only jpg images
+                .withFilter(Pattern.compile(".*\\.(gpx|kml)$"))
+                // Don't apply filter to directories names
+                .withFilterDirectories(false)
+                .withTitle("Sample title")
+                .withRequestCode(FILE_PICKER_REQUEST_CODE)
+                .start()
+        } else {
+            if (shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE)) {
+                Toast.makeText(this, "Allow external storage reading", Toast.LENGTH_SHORT).show()
+            } else {
+                requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                    FILE_PERMISSIONS_REQUEST_CODE
+                )
+            }
+        }
+
+//        when {
+//            ContextCompat.checkSelfPermission(
+//                this,
+//                Manifest.permission.READ_EXTERNAL_STORAGE
+//            ) == PackageManager.PERMISSION_GRANTED -> {
+//                Toast.makeText(this, "Permission granted", Toast.LENGTH_SHORT).show()
+//            }
+//            shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE) -> {
+//            // In an educational UI, explain to the user why your app requires this
+//            // permission for a specific feature to behave as expected. In this UI,
+//            // include a "cancel" or "no thanks" button that allows the user to
+//            // continue using your app without granting the permission.
+//            Toast.makeText(this, "Allow external storage reading", Toast.LENGTH_SHORT).show()
+//        }
+//            else -> {
+//                // You can directly ask for the permission.
+//                requestPermissions(this,
+//                    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+//                    FILE_PERMISSIONS_REQUEST_CODE)
+//            }
+//        }
+
+
+//        if (permissionGranted) {
+//        } else {
+//            // You can directly ask for the permission.
+//            requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), FILE_PERMISSIONS_REQUEST_CODE)
+//            Toast.makeText(this, "Allow external storage reading", Toast.LENGTH_SHORT).show()
+//        }
+    }
+
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == FILE_PERMISSIONS_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults.first() == PackageManager.PERMISSION_GRANTED) {
+                checkPermissionsAndOpenFilePicker()
+            } else {
+                Toast.makeText(this, "Please allow external storage reading", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -660,6 +779,29 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         }
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?) {
+        super.onActivityResult(requestCode, resultCode, resultData)
+
+        // used for Android-internal intent
+//        if (requestCode == FILE_PICKER_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
+//            resultData?.data?.also { uri ->
+//                Toast.makeText(this, "Picked file: ${uri.path}.", Toast.LENGTH_LONG).show()
+//                // Perform operations on the document using its URI.
+//            }
+//        }
+
+        // used with MaterialFilePicker
+        if (requestCode == FILE_PICKER_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
+            resultData ?: throw IllegalArgumentException("data must not be null")
+
+            val path = resultData.getStringExtra(FilePickerActivity.RESULT_FILE_PATH)
+
+            if (path != null) {
+                Toast.makeText(this, "Picked file: ${path}.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     inner class CustomLocationEngineCallback(activity: Activity) : LocationEngineCallback<LocationEngineResult> {
         private val activityRef = WeakReference(activity)
 
@@ -674,5 +816,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         }
         override fun onFailure(exception: Exception) {
         }
+    }
+
+    companion object {
+        private const val FILE_PERMISSIONS_REQUEST_CODE = 0
+        private const val FILE_PICKER_REQUEST_CODE = 1
     }
 }

@@ -3,6 +3,7 @@
     package="com.henrythasler.cyclemap">
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <application
         android:name=".SearchApplication"
         android:allowBackup="true"
