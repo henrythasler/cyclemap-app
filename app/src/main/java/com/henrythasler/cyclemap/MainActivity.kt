@@ -9,11 +9,9 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.view.View
-import android.widget.CheckBox
-import android.widget.ImageView
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -84,7 +82,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     private lateinit var cardsMediator: SearchViewBottomSheetsMediator
     private lateinit var mapCrosshair: ImageView
     private lateinit var mapDistance: TextView
-    private lateinit var trackRecordButton: CheckBox
+    private lateinit var trackRecordButton: Button
     private var locationEngine: LocationEngine? = null
 
     private var measureDistance = false
@@ -96,6 +94,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     private var trackPoints = ArrayList<Point>()
     private var customLocationEngineCallback = CustomLocationEngineCallback(this)
 
+    private var recentPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString()
     private var routePoints = ArrayList<Point>()
 
 
@@ -190,6 +189,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 }
                 R.id.menu_route_load -> {
                     checkPermissionsAndOpenFilePicker()
+                }
+                R.id.menu_route_clear -> {
+                    routePoints.clear()
+                    style.getSourceAs<GeoJsonSource>("ROUTE_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(routePoints))
                 }
             }
             // Add code here to update the UI based on the item selected
@@ -349,9 +352,33 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
 
         mapDistance = findViewById(R.id.mapDistance)
 
+        // Track logging interactions
         trackRecordButton = findViewById(R.id.recordTrack)
-        trackRecordButton.setOnCheckedChangeListener { _, isChecked ->
+        trackRecordButton.setOnLongClickListener {
             toogleRecordTrack();
+            true
+        }
+        trackRecordButton.setOnClickListener {
+            showTrackStatistics();
+            true
+        }
+    }
+
+    private fun showTrackStatistics() {
+        if(trackPoints.size > 1) {
+        val distance = TurfMeasurement.distance(trackPoints.first(), trackPoints.last(), UNIT_METERS)
+        var distanceText = "0 km"
+        if (distance > 5000) {
+            distanceText = DecimalFormat("#.0 km").format(distance / 1000)
+        } else {
+            distanceText = DecimalFormat("# m").format(distance)
+        }
+
+        Toast.makeText(
+            this@MainActivity,
+            distanceText,
+            Toast.LENGTH_LONG
+        ).show()
         }
     }
 
@@ -452,6 +479,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
     private fun toogleRecordTrack() {
         if (enableTrackLogging) {
             enableTrackLogging = false
+            trackRecordButton.setBackgroundResource(R.drawable.record_button_inactive);
             style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(trackPoints))
             Toast.makeText(
                 this@MainActivity,
@@ -460,6 +488,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             ).show()
         } else {
             enableTrackLogging = true
+            trackRecordButton.setBackgroundResource(R.drawable.record_button_active);
             Toast.makeText(
                 this@MainActivity,
                 getString(R.string.trackLoggingActive),
@@ -493,7 +522,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 // With cross icon on the right side of toolbar for closing picker straight away
                 .withCloseMenu(true)
                 // Entry point path (user will start from it)
-//                        .withPath(alarmsFolder.absolutePath)
+                .withPath(recentPath)
                 // Root path (user won't be able to come higher than it)
                 .withRootPath("/storage")
                 // Showing hidden files
@@ -658,6 +687,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 .pulseEnabled(true)
                 .trackingGesturesManagement(true)
                 .pulseColor(Color.parseColor("#00c000"))
+                .pulseMaxRadius(32.0F)
 //                .pulseAlpha(.4f)
 //                .pulseInterpolator(BounceInterpolator())
                 .build()
@@ -808,19 +838,24 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             resultData ?: throw IllegalArgumentException("data must not be null")
 
             val path = resultData.getStringExtra(FilePickerActivity.RESULT_FILE_PATH)
+            recentPath = path.toString().substringBeforeLast("/")
 
             if (path != null) {
-                Toast.makeText(this, "Picked file: ${path}. ${GPX.read(path).version}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Picked file: ${path}.", Toast.LENGTH_LONG).show()
+                try {
+                    val points = GPX.read(path).tracks
+                        .flatMap { it.segments }
+                        .flatMap { it.points }
 
-                val points = GPX.read(path).tracks
-                    .flatMap { it.segments }
-                    .flatMap { it.points }
-
-                routePoints.clear()
-                points.forEach { point ->
-                    routePoints.add(Point.fromLngLat(point.longitude.toDegrees(), point.latitude.toDegrees()))
+                    routePoints.clear()
+                    points.forEach { point ->
+                        routePoints.add(Point.fromLngLat(point.longitude.toDegrees(), point.latitude.toDegrees()))
+                    }
+                    style.getSourceAs<GeoJsonSource>("ROUTE_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(routePoints))
                 }
-                style.getSourceAs<GeoJsonSource>("ROUTE_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(routePoints))
+                catch (e: RuntimeException) {
+                    Toast.makeText(this, "Error loading file ${path.substringAfterLast("/")}: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }

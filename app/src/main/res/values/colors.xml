@@ -6,4 +6,6 @@
     <color name="colorMeasureDistance">#F44336</color>
     <color name="trackLine">#9A00FF0A</color>
     <color name="routeLine">#9AE91E1E</color>
+    <color name="record_red">#B0B1180C</color>
+    <color name="record_grey">#B0AAAAAA</color>
 </resources>

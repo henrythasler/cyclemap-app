@@ -5,6 +5,9 @@ android app for offline usage of vector-tiles
 
 ## References
 
+- [JPX - Java library for creating, reading and writing GPX data](https://github.com/jenetics/jpx)
+- [Material File Picker](https://github.com/nbsp-team/MaterialFilePicker)
+
 ### Mapbox
 
 - [Mapbox Tutorial For Android: Getting Started](https://www.raywenderlich.com/378151-mapbox-tutorial-for-android-getting-started)

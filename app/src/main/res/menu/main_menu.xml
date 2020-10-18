@@ -26,8 +26,12 @@
             <menu>
                 <item
                     android:id="@+id/menu_route_load"
-                    android:icon="@drawable/record_24_red"
+                    android:icon="@drawable/ic_baseline_directions_24"
                     android:title="@string/menu_route_load" />
+                <item
+                    android:id="@+id/menu_route_clear"
+                    android:icon="@android:drawable/ic_menu_delete"
+                    android:title="@string/menu_route_clear" />
             </menu>
         </item>
         <item
@@ -37,7 +41,7 @@
             <menu>
                 <item
                     android:id="@+id/menu_track_record"
-                    android:icon="@drawable/record_24_red"
+                    android:icon="@drawable/circle_red"
                     android:title="@string/menu_track_record" />
                 <item
                     android:id="@+id/menu_track_clear"
@@ -52,7 +56,7 @@
             <menu>
                 <item
                     android:id="@+id/menu_cache_ambient_invalidate"
-                    android:icon="@drawable/record_24_grey"
+                    android:icon="@android:drawable/ic_menu_close_clear_cancel"
                     android:title="@string/menu_cache_ambient_invalidate" />
                 <item
                     android:id="@+id/menu_cache_ambient_clear"

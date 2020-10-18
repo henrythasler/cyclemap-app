@@ -29,4 +29,5 @@
     <string name="trackLoggingActive">Track logging active</string>
     <string name="menu_route_management">Route</string>
     <string name="menu_route_load">Load GPX</string>
+    <string name="menu_route_clear">Clear route</string>
 </resources>
