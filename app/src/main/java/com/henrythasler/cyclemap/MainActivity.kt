@@ -11,12 +11,16 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.view.View
-import android.widget.*
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.TextView
+import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.app.ActivityCompat.requestPermissions
 import androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale
+import androidx.core.content.ContextCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.navigation.NavigationView
@@ -48,7 +52,10 @@ import com.mapbox.mapboxsdk.style.layers.PropertyFactory.visibility
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource
 import com.mapbox.pluginscalebar.ScaleBarOptions
 import com.mapbox.pluginscalebar.ScaleBarPlugin
-import com.mapbox.search.*
+import com.mapbox.search.MapboxSearchSdk
+import com.mapbox.search.ReverseGeocodingSearchEngine
+import com.mapbox.search.SearchCallback
+import com.mapbox.search.SearchRequestTask
 import com.mapbox.search.result.SearchResult
 import com.mapbox.search.result.SearchResultType
 import com.mapbox.search.ui.view.SearchBottomSheetView
@@ -63,6 +70,9 @@ import com.nbsp.materialfilepicker.ui.FilePickerActivity
 import io.jenetics.jpx.GPX
 import java.lang.ref.WeakReference
 import java.text.DecimalFormat
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 import kotlin.math.abs
 
@@ -92,9 +102,12 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
 
     private var enableTrackLogging = false
     private var trackPoints = ArrayList<Point>()
+    private var trackStartTime: LocalDateTime? = null;
+    private var trackEndTime: LocalDateTime? = null;
     private var customLocationEngineCallback = CustomLocationEngineCallback(this)
 
-    private var recentPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString()
+    private var recentPath =
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString()
     private var routePoints = ArrayList<Point>()
 
 
@@ -122,7 +135,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                     Toast.makeText(this, "menu_show_hillshading", Toast.LENGTH_LONG).show()
                     val layer: Layer? = style.getLayer("hillshading")
                     if (Property.VISIBLE == layer?.visibility?.getValue()) {
-                        layer?.setProperties(visibility(Property.NONE))
+                        layer.setProperties(visibility(Property.NONE))
                     } else {
                         layer?.setProperties(visibility(Property.VISIBLE))
                     }
@@ -180,19 +193,28 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                     })
                 }
                 R.id.menu_track_record -> {
-                    toogleRecordTrack()
+                    toggleRecordTrack()
                     trackRecordButton.performClick()
                 }
                 R.id.menu_track_clear -> {
                     trackPoints.clear()
-                    style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(trackPoints))
+                    trackStartTime = LocalDateTime.now()
+                    style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(
+                        LineString.fromLngLats(
+                            trackPoints
+                        )
+                    )
                 }
                 R.id.menu_route_load -> {
                     checkPermissionsAndOpenFilePicker()
                 }
                 R.id.menu_route_clear -> {
                     routePoints.clear()
-                    style.getSourceAs<GeoJsonSource>("ROUTE_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(routePoints))
+                    style.getSourceAs<GeoJsonSource>("ROUTE_LAYER_SOURCE_ID")?.setGeoJson(
+                        LineString.fromLngLats(
+                            routePoints
+                        )
+                    )
                 }
             }
             // Add code here to update the UI based on the item selected
@@ -355,31 +377,46 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         // Track logging interactions
         trackRecordButton = findViewById(R.id.recordTrack)
         trackRecordButton.setOnLongClickListener {
-            toogleRecordTrack();
+            toggleRecordTrack();
             true
         }
         trackRecordButton.setOnClickListener {
             showTrackStatistics();
-            true
         }
     }
 
     private fun showTrackStatistics() {
-        if(trackPoints.size > 1) {
-        val distance = TurfMeasurement.distance(trackPoints.first(), trackPoints.last(), UNIT_METERS)
-        var distanceText = "0 km"
-        if (distance > 5000) {
-            distanceText = DecimalFormat("#.0 km").format(distance / 1000)
-        } else {
-            distanceText = DecimalFormat("# m").format(distance)
+        var distanceText = "-"
+        if (trackPoints.size > 1) {
+            val distance = TurfMeasurement.length(LineString.fromLngLats(trackPoints), UNIT_METERS)
+            distanceText = if (distance > 5000) {
+                DecimalFormat("#.0 km").format(distance / 1000)
+            } else {
+                DecimalFormat("# m").format(distance)
+            }
         }
 
-        Toast.makeText(
-            this@MainActivity,
-            distanceText,
-            Toast.LENGTH_LONG
-        ).show()
+        var durationText = "-"
+        if (trackStartTime != null) {
+            if (enableTrackLogging) {
+                trackEndTime = LocalDateTime.now()
+            }
+
+            val formatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+            val diff = LocalDateTime.ofEpochSecond(
+                trackEndTime!!.toEpochSecond(ZoneOffset.UTC) - trackStartTime!!.toEpochSecond(
+                    ZoneOffset.UTC
+                ), 0, ZoneOffset.UTC
+            )
+            durationText = diff.format(formatter)
         }
+
+        val builder = AlertDialog.Builder(this)
+        builder.setMessage("Distance: $distanceText\nDuration: $durationText")
+            ?.setTitle("Track Statistics")
+        val dialog: AlertDialog? = builder.create()
+        dialog?.show()
+
     }
 
     override fun onStart() {
@@ -450,6 +487,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         ) { style -> onStyleLoaded(style) }
 
         map.addOnMapLongClickListener { point: LatLng ->
+            // Convert LatLng coordinates to screen pixel and only query the rendered features.
+            val pixel = mapboxMap.projection.toScreenLocation(point)
+            val features = mapboxMap.queryRenderedFeatures(pixel)
+
+            if (features.size > 0) {
+                val items = mutableListOf<String>()
+                for (feature in features) {
+                    items.add(feature.properties().toString())
+                }
+
+                val builder: AlertDialog.Builder = AlertDialog.Builder(this)
+                builder.setTitle("Properties")
+                    .setItems(items.toTypedArray(), null)
+                val dialog: AlertDialog? = builder.create()
+                dialog?.show()
+            }
+/*
             val options = ReverseGeoOptions(
                 center = Point.fromLngLat(point.longitude, point.latitude),
                 limit = 1,
@@ -457,6 +511,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 types = listOf(QueryType.POI, QueryType.LOCALITY, QueryType.PLACE)
             )
             searchRequestTask = reverseGeocoding.search(options, searchCallback)
+
+ */
             true
         }
 
@@ -476,11 +532,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
         }
     }
 
-    private fun toogleRecordTrack() {
+    private fun toggleRecordTrack() {
         if (enableTrackLogging) {
             enableTrackLogging = false
             trackRecordButton.setBackgroundResource(R.drawable.record_button_inactive);
-            style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(trackPoints))
+            style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(
+                LineString.fromLngLats(
+                    trackPoints
+                )
+            )
             Toast.makeText(
                 this@MainActivity,
                 getString(R.string.toastTrackLoggingPaused),
@@ -488,6 +548,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             ).show()
         } else {
             enableTrackLogging = true
+            trackStartTime = LocalDateTime.now()
             trackRecordButton.setBackgroundResource(R.drawable.record_button_active);
             Toast.makeText(
                 this@MainActivity,
@@ -511,7 +572,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
 //        startActivityForResult(intent, FILE_PICKER_REQUEST_CODE)
 
 
-        val permissionGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        val permissionGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        ) == PackageManager.PERMISSION_GRANTED
         if (permissionGranted) {
             MaterialFilePicker()
                 // Pass a source of context. Can be:
@@ -535,7 +599,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 .withRequestCode(FILE_PICKER_REQUEST_CODE)
                 .start()
         } else {
-            if (shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE)) {
+            if (shouldShowRequestPermissionRationale(
+                    this,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                )
+            ) {
                 Toast.makeText(this, "Allow external storage reading", Toast.LENGTH_SHORT).show()
             } else {
                 requestPermissions(
@@ -589,7 +657,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
             if (grantResults.isNotEmpty() && grantResults.first() == PackageManager.PERMISSION_GRANTED) {
                 checkPermissionsAndOpenFilePicker()
             } else {
-                Toast.makeText(this, "Please allow external storage reading", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Please allow external storage reading", Toast.LENGTH_SHORT)
+                    .show()
             }
         }
     }
@@ -722,7 +791,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
                 .setPriority(LocationEngineRequest.PRIORITY_BALANCED_POWER_ACCURACY)
                 .setMaxWaitTime(5000L).build()
 
-            locationEngine?.requestLocationUpdates(request, customLocationEngineCallback, mainLooper)
+            locationEngine?.requestLocationUpdates(
+                request,
+                customLocationEngineCallback,
+                mainLooper
+            )
             locationEngine?.getLastLocation(customLocationEngineCallback)
 
             findViewById<FloatingActionButton>(R.id.back_to_camera_tracking_mode).setOnClickListener {
@@ -849,29 +922,57 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, Style.OnStyleLoade
 
                     routePoints.clear()
                     points.forEach { point ->
-                        routePoints.add(Point.fromLngLat(point.longitude.toDegrees(), point.latitude.toDegrees()))
+                        routePoints.add(
+                            Point.fromLngLat(
+                                point.longitude.toDegrees(),
+                                point.latitude.toDegrees()
+                            )
+                        )
                     }
-                    style.getSourceAs<GeoJsonSource>("ROUTE_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(routePoints))
-                }
-                catch (e: RuntimeException) {
-                    Toast.makeText(this, "Error loading file ${path.substringAfterLast("/")}: ${e.message}", Toast.LENGTH_LONG).show()
+                    style.getSourceAs<GeoJsonSource>("ROUTE_LAYER_SOURCE_ID")?.setGeoJson(
+                        LineString.fromLngLats(
+                            routePoints
+                        )
+                    )
+                } catch (e: RuntimeException) {
+                    Toast.makeText(
+                        this,
+                        "Error loading file ${path.substringAfterLast("/")}: ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }
     }
 
-    inner class CustomLocationEngineCallback(activity: Activity) : LocationEngineCallback<LocationEngineResult> {
+    inner class CustomLocationEngineCallback(activity: Activity) :
+        LocationEngineCallback<LocationEngineResult> {
         private val activityRef = WeakReference(activity)
 
         override fun onSuccess(result: LocationEngineResult?) {
-            val activity: Activity? = activityRef.get()
+//            val activity: Activity? = activityRef.get()
 
-            if(enableTrackLogging) {
-                trackPoints.add(Point.fromLngLat(result?.lastLocation?.longitude!!, result?.lastLocation?.latitude!!))
-                style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(LineString.fromLngLats(trackPoints))
-                trackRecordButton.text = trackPoints.size.toString()
+            if (enableTrackLogging) {
+                trackPoints.add(
+                    Point.fromLngLat(
+                        result?.lastLocation?.longitude!!,
+                        result.lastLocation?.latitude!!
+                    )
+                )
+                style.getSourceAs<GeoJsonSource>("DRAW_TRACK_LAYER_SOURCE_ID")?.setGeoJson(
+                    LineString.fromLngLats(
+                        trackPoints
+                    )
+                )
+                val buttonText = if (trackPoints.size < 1000) {
+                    DecimalFormat("#").format(trackPoints.size)
+                } else {
+                    DecimalFormat("#.0k").format(trackPoints.size / 1000)
+                }
+                trackRecordButton.text = buttonText
             }
         }
+
         override fun onFailure(exception: Exception) {
         }
     }
