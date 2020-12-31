@@ -1,5 +1,7 @@
-# cyclemap-app
-android app for offline usage of vector-tiles
+# Cyclemap App
+An Android app for offline usage of vector-tiles
+
+![Screen sample](app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png)
 
 ![Screen sample](docs/screenshot.png)
 
