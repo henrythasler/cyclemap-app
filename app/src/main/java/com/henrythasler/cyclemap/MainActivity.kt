@@ -1,9 +1,14 @@
 package com.henrythasler.cyclemap
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.mapbox.geojson.Point
+import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.Style
+import com.mapbox.maps.plugin.animation.MapAnimationOptions
+import com.mapbox.maps.plugin.animation.easeTo
 
 var mapView: MapView? = null
 
@@ -13,26 +18,16 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         mapView = findViewById(R.id.mapView)
-        mapView?.getMapboxMap()?.loadStyleUri(Style.MAPBOX_STREETS)
+        mapView?.getMapboxMap()?.loadStyleUri("https://www.cyclemap.link/cyclemap-style.json") {
+            style -> onStyleLoaded(style)
+        }
     }
 
-    override fun onStart() {
-        super.onStart()
-        mapView?.onStart()
-    }
-
-    override fun onStop() {
-        super.onStop()
-        mapView?.onStop()
-    }
-
-    override fun onLowMemory() {
-        super.onLowMemory()
-        mapView?.onLowMemory()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        mapView?.onDestroy()
+     private fun onStyleLoaded(style: Style) {
+        val cameraPosition = CameraOptions.Builder()
+            .zoom(12.0)
+            .build()
+        val mapAnimationOptions = MapAnimationOptions.Builder().duration(5000).build()
+        mapView?.getMapboxMap()?.easeTo(cameraPosition, mapAnimationOptions)
     }
 }
