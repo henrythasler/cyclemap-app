@@ -11,4 +11,8 @@
     <string name="menu_gallery">Gallery</string>
     <string name="menu_slideshow">Slideshow</string>
     <string name="mapbox_access_token">pk.eyJ1IjoibXljeWNsZW1hcCIsImEiOiJjaXJhYnoxcGEwMDRxaTlubnk3cGZpbTBmIn0.TEO9UhyyX1nFKDTwO4K1xg</string>
+    <string name="location">enable location</string>
+    <string name="mapCrosshairDescription">crosshair</string>
+    <string name="menu_hillshading">Hillshading</string>
+    <string name="menu_shareposition">Share Map Position</string>
 </resources>
