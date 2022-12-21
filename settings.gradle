@@ -25,5 +25,5 @@ dependencyResolutionManagement {
         }
     }
 }
-rootProject.name = "My Application"
+rootProject.name = "Cyclemap2"
 include ':app'

@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.henrythasler.cyclemap'
+    namespace 'com.henrythasler.cyclemap2'
     compileSdk 32
 
     defaultConfig {
-        applicationId "com.henrythasler.cyclemap"
+        applicationId "com.henrythasler.cyclemap2"
         minSdk 28
         targetSdk 32
         versionCode 1
