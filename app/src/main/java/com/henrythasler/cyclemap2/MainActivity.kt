@@ -1,10 +1,17 @@
-package com.henrythasler.cyclemap
+package com.henrythasler.cyclemap2
 
 import android.os.Bundle
-import android.widget.Toast
+import android.view.Menu
+import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.navigation.NavigationView
+import androidx.navigation.findNavController
+import androidx.navigation.ui.AppBarConfiguration
+import androidx.navigation.ui.navigateUp
+import androidx.navigation.ui.setupActionBarWithNavController
+import androidx.navigation.ui.setupWithNavController
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.appcompat.app.AppCompatActivity
-import com.henrythasler.cyclemap2.R
-import com.mapbox.geojson.Point
+import com.henrythasler.cyclemap2.databinding.ActivityMainBinding
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.Style
@@ -20,11 +27,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         mapView = findViewById(R.id.mapView)
         mapView?.getMapboxMap()?.loadStyleUri("https://www.cyclemap.link/cyclemap-style.json") {
-            style -> onStyleLoaded(style)
+                style -> onStyleLoaded(style)
         }
     }
 
-     private fun onStyleLoaded(style: Style) {
+    private fun onStyleLoaded(style: Style) {
         val cameraPosition = CameraOptions.Builder()
             .zoom(12.0)
             .build()

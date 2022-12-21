@@ -1,4 +1,4 @@
-package com.henrythasler.cyclemap
+package com.henrythasler.cyclemap2
 
 import org.junit.Test
 
