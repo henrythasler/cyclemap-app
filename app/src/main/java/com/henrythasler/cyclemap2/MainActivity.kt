@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
@@ -12,25 +11,26 @@ import com.google.android.material.navigation.NavigationView
 import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.geojson.Point
 import com.mapbox.maps.*
-import com.mapbox.maps.extension.style.layers.Layer
 import com.mapbox.maps.extension.style.layers.getLayer
 import com.mapbox.maps.extension.style.layers.properties.generated.Visibility
-import com.mapbox.maps.plugin.animation.MapAnimationOptions
-import com.mapbox.maps.plugin.animation.camera
-import com.mapbox.maps.plugin.animation.easeTo
-import com.mapbox.maps.plugin.gestures.GesturesPlugin
+
 import com.mapbox.maps.plugin.gestures.OnMoveListener
 import com.mapbox.maps.plugin.gestures.gestures
-import com.mapbox.maps.plugin.locationcomponent.location
+import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
+import com.mapbox.maps.plugin.locationcomponent.location2
+import java.lang.ref.WeakReference
 
-
-var mapView: MapView? = null
-var map: MapboxMap? = null
 
 class MainActivity : AppCompatActivity() {
+    private lateinit var locationPermissionHelper: LocationPermissionHelper
+    private lateinit var map: MapboxMap
+    private lateinit var mapView: MapView
+    private var trackingEnabled: Boolean = false
 
     private val moveListener: OnMoveListener = object : OnMoveListener {
         override fun onMoveBegin(detector: MoveGestureDetector) {
+            Log.d("App", "tracking disabled")
+            trackingEnabled = false
         }
 
         override fun onMove(detector: MoveGestureDetector): Boolean {
@@ -38,30 +38,41 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun onMoveEnd(detector: MoveGestureDetector) {
-
             // this is a workaround to reliably set the focalPoint for double-tap-zoom
-            mapView?.gestures?.focalPoint = map?.pixelForCoordinate(map!!.cameraState.center)
-            Log.i("App", "onMoveEnd(): focalPoint=" + mapView?.gestures?.focalPoint.toString())
+            mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
+            Log.i("App", "onMoveEnd(): focalPoint=" + mapView.gestures.focalPoint.toString())
         }
+    }
+
+    private val onIndicatorPositionChangedListener = OnIndicatorPositionChangedListener {
+        if(trackingEnabled)
+            mapView.getMapboxMap().setCamera(CameraOptions.Builder().center(it).build())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         mapView = findViewById(R.id.mapView)
-        map = mapView?.getMapboxMap()
+        map = mapView.getMapboxMap()
 
         restoreSettings()
 
-        map?.loadStyleUri(resources.getString(R.string.MAIN_STYLE_URL)) {
+        map.loadStyleUri(resources.getString(R.string.MAIN_STYLE_URL)) {
                 style -> onStyleLoaded(style)
+        }
+
+        // location tracking
+        locationPermissionHelper = LocationPermissionHelper(WeakReference(this))
+        locationPermissionHelper.checkPermissions {
+            Log.i("App", "permissions ok")
         }
 
         // set up user interaction
         val locateButton: View = findViewById(R.id.locate)
         locateButton.setOnClickListener { onLocateButton()}
 
-        mapView?.gestures?.addOnMoveListener(moveListener)
+        mapView.gestures.addOnMoveListener(moveListener)
+        mapView.location2.addOnIndicatorPositionChangedListener(onIndicatorPositionChangedListener)
 
         // set up drawer menu
         val mDrawerLayout: DrawerLayout = findViewById(R.id.drawer_layout)
@@ -72,7 +83,7 @@ class MainActivity : AppCompatActivity() {
 
             when (menuItem.itemId) {
                 R.id.nav_hillshading -> {
-                    mapView?.getMapboxMap()?.getStyle() {
+                    mapView.getMapboxMap().getStyle {
                         it.getLayer("hillshading")?.let { layer ->
                             layer.visibility( if(layer.visibility == Visibility.NONE) Visibility.VISIBLE else Visibility.NONE)
                         }
@@ -95,15 +106,24 @@ class MainActivity : AppCompatActivity() {
  */
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        locationPermissionHelper.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         Log.i("App", "onSaveInstanceState()")
 
         // see https://developer.android.com/training/data-storage/shared-preferences
         with(getPreferences(Context.MODE_PRIVATE).edit()) {
-            putFloat(getString(R.string.STATE_LATITUDE), map!!.cameraState.center.latitude().toFloat())
-            putFloat(getString(R.string.STATE_LONGITUDE), map!!.cameraState.center.longitude().toFloat())
-            putFloat(getString(R.string.STATE_ZOOM), map!!.cameraState.zoom.toFloat())
+            putFloat(getString(R.string.STATE_LATITUDE), map.cameraState.center.latitude().toFloat())
+            putFloat(getString(R.string.STATE_LONGITUDE), map.cameraState.center.longitude().toFloat())
+            putFloat(getString(R.string.STATE_ZOOM), map.cameraState.zoom.toFloat())
             commit()
         }
     }
@@ -119,23 +139,38 @@ class MainActivity : AppCompatActivity() {
             .build()
         Log.i("App", "restoreSettings(): center=" + cameraPosition.center?.coordinates().toString() + " zoom=" + cameraPosition.zoom.toString())
         // set camera position
-        map?.setCamera(cameraPosition)
+        map.setCamera(cameraPosition)
     }
 
     private fun onStyleLoaded(style: Style) {
         // prevent certain UI operations
-        mapView?.gestures?.rotateEnabled = false
-        mapView?.gestures?.pitchEnabled = false
+        mapView.gestures.rotateEnabled = false
+        mapView.gestures.pitchEnabled = false
 
         // make sure we always zoom into the map center
-        mapView?.gestures?.focalPoint = map?.pixelForCoordinate(map!!.cameraState.center)
-        Log.i("App", "onStyleLoaded(): focalPoint=" + mapView?.gestures?.focalPoint.toString())
+        mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
+        Log.i("App", "onStyleLoaded(): focalPoint=" + mapView.gestures.focalPoint.toString())
     }
 
     private fun onLocateButton() {
-        Toast.makeText(
-            this, "hello",
-            Toast.LENGTH_SHORT
-        ).show();
+        if(mapView.location2.enabled) {
+            // jump back to current location if the user has manually scrolled away
+            if(!trackingEnabled) {
+                trackingEnabled = true
+            }
+            // disable tracking if the user is currently tracking the position
+            else {
+                mapView.location2.enabled = false
+            }
+        }
+        else {
+            // enable location tracking
+            mapView.location2.apply {
+                enabled = true
+                pulsingEnabled = true
+                puckBearingEnabled = true
+            }
+            trackingEnabled = true
+        }
     }
 }
