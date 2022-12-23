@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainMapActivity">
+
+    <com.mapbox.maps.MapView
+        android:id="@+id/mapView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:mapbox_cameraTargetLat="48"
+        app:mapbox_cameraTargetLng="11"
+        app:mapbox_cameraZoom="9.0"
+        app:mapbox_scaleBarTextSize="14dp"
+        app:mapbox_scaleBarHeight="5dp"
+        app:mapbox_scaleBarGravity="bottom|end"
+        app:mapbox_scaleBarIsMetricUnits="true">
+    </com.mapbox.maps.MapView>
+
+    <ImageView
+        android:id="@+id/crosshair"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:alpha="0.75"
+        android:contentDescription="Crosshair"
+        app:layout_anchorGravity="center"
+        app:srcCompat="@drawable/my_location_48px" />
+
+    <ImageButton
+        android:id="@+id/imageButton3"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginVertical="50dp"
+        android:background="@drawable/rect_rounded_button"
+        app:layout_anchor="@+id/mapView"
+        app:layout_anchorGravity="start|top"
+        app:srcCompat="@drawable/ic_baseline_my_location_24" />
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
