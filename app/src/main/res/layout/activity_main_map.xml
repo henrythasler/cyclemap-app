@@ -38,4 +38,21 @@
         app:layout_anchor="@+id/mapView"
         app:layout_anchorGravity="start|top"
         app:srcCompat="@drawable/ic_baseline_my_location_24" />
+
+    <TextView
+        android:id="@+id/distanceText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-medium"
+        android:paddingStart="60dp"
+        android:shadowColor="@color/white"
+        android:shadowRadius="10"
+        android:text="TextView"
+        android:textColor="@color/black"
+        android:textSize="18sp"
+        android:textStyle="italic"
+        android:visibility="invisible"
+        app:layout_anchor="@+id/crosshair"
+        app:layout_anchorGravity="end|bottom" />
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

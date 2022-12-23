@@ -5,23 +5,43 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.TextView
 import com.mapbox.android.gestures.MoveGestureDetector
+import com.mapbox.geojson.Feature
+import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.MapView
 import com.mapbox.maps.MapboxMap
 import com.mapbox.maps.Style
+import com.mapbox.maps.extension.style.layers.addLayer
+import com.mapbox.maps.extension.style.layers.generated.lineLayer
+import com.mapbox.maps.extension.style.layers.getLayer
+import com.mapbox.maps.extension.style.layers.properties.generated.LineCap
+import com.mapbox.maps.extension.style.layers.properties.generated.LineJoin
+import com.mapbox.maps.extension.style.layers.properties.generated.Visibility
+import com.mapbox.maps.extension.style.sources.addSource
+import com.mapbox.maps.extension.style.sources.generated.GeoJsonSource
+import com.mapbox.maps.extension.style.sources.generated.geoJsonSource
+import com.mapbox.maps.extension.style.sources.getSourceAs
 import com.mapbox.maps.plugin.gestures.OnMoveListener
 import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
 import com.mapbox.maps.plugin.locationcomponent.location2
+import com.mapbox.turf.TurfConstants.UNIT_DEFAULT
+import com.mapbox.turf.TurfConstants.UNIT_METERS
+import com.mapbox.turf.TurfMeasurement
 import java.lang.ref.WeakReference
+import java.text.DecimalFormat
 
 class MainMapActivity : AppCompatActivity() {
     private lateinit var locationPermissionHelper: LocationPermissionHelper
     private lateinit var map: MapboxMap
     private lateinit var mapView: MapView
     private var trackingEnabled: Boolean = false
+
+    private var distanceMeasurement: Boolean = false
+    private var distanceMeasurementPoints = MutableList<Point>(2) { Point.fromLngLat(0.0, 0.0)}
 
     private val moveListener: OnMoveListener = object : OnMoveListener {
         override fun onMoveBegin(detector: MoveGestureDetector) {
@@ -30,6 +50,9 @@ class MainMapActivity : AppCompatActivity() {
         }
 
         override fun onMove(detector: MoveGestureDetector): Boolean {
+            if (distanceMeasurement) {
+                updateDistanceMeasurement()
+            }
             return false
         }
 
@@ -67,6 +90,10 @@ class MainMapActivity : AppCompatActivity() {
         val locateButton: View = findViewById(R.id.imageButton3)
         locateButton.setOnClickListener { view -> onLocateButton(view) }
 
+        val crosshairButton: View = findViewById(R.id.crosshair)
+        crosshairButton.setOnClickListener { view -> onCrosshairClick(view) }
+
+
         mapView.gestures.addOnMoveListener(moveListener)
         mapView.location2.addOnIndicatorPositionChangedListener(onIndicatorPositionChangedListener)
 
@@ -103,6 +130,64 @@ class MainMapActivity : AppCompatActivity() {
  */
     }
 
+    private fun onStyleLoaded(style: Style) {
+        // prevent certain UI operations
+        mapView.gestures.rotateEnabled = false
+        mapView.gestures.pitchEnabled = false
+
+        // make sure we always zoom into the map center
+        mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
+        Log.i("App", "onStyleLoaded(): focalPoint=" + mapView.gestures.focalPoint.toString())
+
+        style.addSource(
+            geoJsonSource("DISTANCE_MEASUREMENT_SOURCE") {
+                feature(Feature.fromGeometry(LineString.fromLngLats(distanceMeasurementPoints)))
+            }
+        )
+
+        style.addLayer(lineLayer("DISTANCE_MEASUREMENT", "DISTANCE_MEASUREMENT_SOURCE") {
+            lineCap(LineCap.ROUND)
+            lineDasharray(listOf(0.0, 2.0))
+            lineJoin(LineJoin.ROUND)
+            lineOpacity(1.0)
+            lineWidth(5.0)
+            lineColor(getColor(R.color.colorDistanceMeasurement))
+        })
+    }
+
+    private fun onCrosshairClick(view: View?) {
+        distanceMeasurement = !distanceMeasurement
+
+        val distanceText: TextView = findViewById(R.id.distanceText)
+        distanceText.text = "0 m"
+        distanceText.visibility = if(distanceMeasurement) View.VISIBLE else View.INVISIBLE
+
+        distanceMeasurementPoints[0] = map.cameraState.center
+        distanceMeasurementPoints[1] = distanceMeasurementPoints[0]
+
+        val drawLineSource = map.getStyle()?.getSourceAs<GeoJsonSource>("DISTANCE_MEASUREMENT_SOURCE")
+        drawLineSource?.feature(Feature.fromGeometry(LineString.fromLngLats(distanceMeasurementPoints)))
+
+        map.getStyle() {
+            it.getLayer("DISTANCE_MEASUREMENT")?.visibility(if(distanceMeasurement) Visibility.VISIBLE else Visibility.NONE)
+        }
+    }
+
+    private fun updateDistanceMeasurement() {
+        distanceMeasurementPoints[1] = map.cameraState.center
+        val drawLineSource = map.getStyle()?.getSourceAs<GeoJsonSource>("DISTANCE_MEASUREMENT_SOURCE")
+        drawLineSource?.feature(Feature.fromGeometry(LineString.fromLngLats(distanceMeasurementPoints)))
+
+        val distance = TurfMeasurement.length(LineString.fromLngLats(distanceMeasurementPoints), UNIT_METERS)
+        val distanceText: TextView = findViewById(R.id.distanceText)
+
+        if (distance > 5000) {
+            distanceText.text = DecimalFormat("#.0 km").format(distance / 1000)
+        } else {
+            distanceText.text = DecimalFormat("# m").format(distance)
+        }
+    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
@@ -117,7 +202,7 @@ class MainMapActivity : AppCompatActivity() {
         Log.i("App", "onSaveInstanceState()")
 
         // see https://developer.android.com/training/data-storage/shared-preferences
-        with(getPreferences(Context.MODE_PRIVATE).edit()) {
+        with(getPreferences(MODE_PRIVATE).edit()) {
             putFloat(
                 getString(R.string.STATE_LATITUDE),
                 map.cameraState.center.latitude().toFloat()
@@ -132,7 +217,7 @@ class MainMapActivity : AppCompatActivity() {
     }
 
     private fun restoreSettings() {
-        val sharedPref = getPreferences(Context.MODE_PRIVATE) ?: return
+        val sharedPref = getPreferences(MODE_PRIVATE) ?: return
         val cameraPosition = CameraOptions.Builder()
             .zoom(
                 sharedPref.getFloat(
@@ -160,16 +245,6 @@ class MainMapActivity : AppCompatActivity() {
         )
         // set camera position
         map.setCamera(cameraPosition)
-    }
-
-    private fun onStyleLoaded(style: Style) {
-        // prevent certain UI operations
-        mapView.gestures.rotateEnabled = false
-        mapView.gestures.pitchEnabled = false
-
-        // make sure we always zoom into the map center
-        mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
-        Log.i("App", "onStyleLoaded(): focalPoint=" + mapView.gestures.focalPoint.toString())
     }
 
     private fun onLocateButton(view: View) {
