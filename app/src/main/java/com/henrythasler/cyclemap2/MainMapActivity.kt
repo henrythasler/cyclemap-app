@@ -1,11 +1,17 @@
 package com.henrythasler.cyclemap2
 
-import android.content.Context
-import androidx.appcompat.app.AppCompatActivity
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
+import android.provider.DocumentsContract
 import android.util.Log
 import android.view.View
+import android.widget.PopupMenu
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.geojson.Feature
 import com.mapbox.geojson.LineString
@@ -24,13 +30,14 @@ import com.mapbox.maps.extension.style.sources.addSource
 import com.mapbox.maps.extension.style.sources.generated.GeoJsonSource
 import com.mapbox.maps.extension.style.sources.generated.geoJsonSource
 import com.mapbox.maps.extension.style.sources.getSourceAs
+import com.mapbox.maps.plugin.delegates.listeners.OnCameraChangeListener
 import com.mapbox.maps.plugin.gestures.OnMoveListener
 import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
 import com.mapbox.maps.plugin.locationcomponent.location2
-import com.mapbox.turf.TurfConstants.UNIT_DEFAULT
 import com.mapbox.turf.TurfConstants.UNIT_METERS
 import com.mapbox.turf.TurfMeasurement
+import io.jenetics.jpx.GPX
 import java.lang.ref.WeakReference
 import java.text.DecimalFormat
 
@@ -41,7 +48,9 @@ class MainMapActivity : AppCompatActivity() {
     private var trackingEnabled: Boolean = false
 
     private var distanceMeasurement: Boolean = false
-    private var distanceMeasurementPoints = MutableList<Point>(2) { Point.fromLngLat(0.0, 0.0)}
+    private var distanceMeasurementPoints = MutableList<Point>(2) { Point.fromLngLat(0.0, 0.0) }
+
+    private var routePoints: MutableList<Point> = mutableListOf()
 
     private val moveListener: OnMoveListener = object : OnMoveListener {
         override fun onMoveBegin(detector: MoveGestureDetector) {
@@ -50,9 +59,6 @@ class MainMapActivity : AppCompatActivity() {
         }
 
         override fun onMove(detector: MoveGestureDetector): Boolean {
-            if (distanceMeasurement) {
-                updateDistanceMeasurement()
-            }
             return false
         }
 
@@ -60,6 +66,12 @@ class MainMapActivity : AppCompatActivity() {
             // this is a workaround to reliably set the focalPoint for double-tap-zoom
             mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
             Log.i("App", "onMoveEnd(): focalPoint=" + mapView.gestures.focalPoint.toString())
+        }
+    }
+
+    private val cameraChangeListener = OnCameraChangeListener {
+        if (distanceMeasurement) {
+            updateDistanceMeasurement()
         }
     }
 
@@ -76,7 +88,7 @@ class MainMapActivity : AppCompatActivity() {
 
         restoreSettings()
 
-        map.loadStyleUri(resources.getString(R.string.MAIN_STYLE_URL)) { style ->
+        map.loadStyleUri(resources.getString(R.string.CYCLEMAP_STYLE_URL)) { style ->
             onStyleLoaded(style)
         }
 
@@ -87,14 +99,18 @@ class MainMapActivity : AppCompatActivity() {
         }
 
         // set up user interaction
-        val locateButton: View = findViewById(R.id.imageButton3)
+        val menuButton: View = findViewById(R.id.menuButton)
+        menuButton.setOnClickListener { view -> onMenuButton(view) }
+
+        val locateButton: View = findViewById(R.id.locationButton)
         locateButton.setOnClickListener { view -> onLocateButton(view) }
 
         val crosshairButton: View = findViewById(R.id.crosshair)
         crosshairButton.setOnClickListener { view -> onCrosshairClick(view) }
 
-
+        // catch map events
         mapView.gestures.addOnMoveListener(moveListener)
+        map.addOnCameraChangeListener(cameraChangeListener)
         mapView.location2.addOnIndicatorPositionChangedListener(onIndicatorPositionChangedListener)
 
         // set up drawer menu
@@ -139,12 +155,7 @@ class MainMapActivity : AppCompatActivity() {
         mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
         Log.i("App", "onStyleLoaded(): focalPoint=" + mapView.gestures.focalPoint.toString())
 
-        style.addSource(
-            geoJsonSource("DISTANCE_MEASUREMENT_SOURCE") {
-                feature(Feature.fromGeometry(LineString.fromLngLats(distanceMeasurementPoints)))
-            }
-        )
-
+        style.addSource(geoJsonSource("DISTANCE_MEASUREMENT_SOURCE"))
         style.addLayer(lineLayer("DISTANCE_MEASUREMENT", "DISTANCE_MEASUREMENT_SOURCE") {
             lineCap(LineCap.ROUND)
             lineDasharray(listOf(0.0, 2.0))
@@ -153,6 +164,16 @@ class MainMapActivity : AppCompatActivity() {
             lineWidth(5.0)
             lineColor(getColor(R.color.colorDistanceMeasurement))
         })
+
+        style.addSource(geoJsonSource("ROUTE_SOURCE"))
+        style.addLayer(lineLayer("ROUTE", "ROUTE_SOURCE") {
+            lineCap(LineCap.ROUND)
+            lineJoin(LineJoin.ROUND)
+            lineOpacity(0.75)
+            lineWidth(10.0)
+            lineColor(getColor(R.color.colorRoute))
+        })
+
     }
 
     private fun onCrosshairClick(view: View?) {
@@ -160,25 +181,41 @@ class MainMapActivity : AppCompatActivity() {
 
         val distanceText: TextView = findViewById(R.id.distanceText)
         distanceText.text = "0 m"
-        distanceText.visibility = if(distanceMeasurement) View.VISIBLE else View.INVISIBLE
+        distanceText.visibility = if (distanceMeasurement) View.VISIBLE else View.INVISIBLE
 
         distanceMeasurementPoints[0] = map.cameraState.center
         distanceMeasurementPoints[1] = distanceMeasurementPoints[0]
 
-        val drawLineSource = map.getStyle()?.getSourceAs<GeoJsonSource>("DISTANCE_MEASUREMENT_SOURCE")
-        drawLineSource?.feature(Feature.fromGeometry(LineString.fromLngLats(distanceMeasurementPoints)))
+        val drawLineSource =
+            map.getStyle()?.getSourceAs<GeoJsonSource>("DISTANCE_MEASUREMENT_SOURCE")
+        drawLineSource?.feature(
+            Feature.fromGeometry(
+                LineString.fromLngLats(
+                    distanceMeasurementPoints
+                )
+            )
+        )
 
         map.getStyle() {
-            it.getLayer("DISTANCE_MEASUREMENT")?.visibility(if(distanceMeasurement) Visibility.VISIBLE else Visibility.NONE)
+            it.getLayer("DISTANCE_MEASUREMENT")
+                ?.visibility(if (distanceMeasurement) Visibility.VISIBLE else Visibility.NONE)
         }
     }
 
     private fun updateDistanceMeasurement() {
         distanceMeasurementPoints[1] = map.cameraState.center
-        val drawLineSource = map.getStyle()?.getSourceAs<GeoJsonSource>("DISTANCE_MEASUREMENT_SOURCE")
-        drawLineSource?.feature(Feature.fromGeometry(LineString.fromLngLats(distanceMeasurementPoints)))
+        val drawLineSource =
+            map.getStyle()?.getSourceAs<GeoJsonSource>("DISTANCE_MEASUREMENT_SOURCE")
+        drawLineSource?.feature(
+            Feature.fromGeometry(
+                LineString.fromLngLats(
+                    distanceMeasurementPoints
+                )
+            )
+        )
 
-        val distance = TurfMeasurement.length(LineString.fromLngLats(distanceMeasurementPoints), UNIT_METERS)
+        val distance =
+            TurfMeasurement.length(LineString.fromLngLats(distanceMeasurementPoints), UNIT_METERS)
         val distanceText: TextView = findViewById(R.id.distanceText)
 
         if (distance > 5000) {
@@ -270,4 +307,93 @@ class MainMapActivity : AppCompatActivity() {
             trackingEnabled = true
         }
     }
+
+    private fun onMenuButton(view: View?) {
+        PopupMenu(this, view).apply {
+            // MainActivity implements OnMenuItemClickListener
+            setOnMenuItemClickListener { it ->
+                when (it.itemId) {
+                    R.id.style_cyclemap -> {
+                        map.loadStyleUri(resources.getString(R.string.CYCLEMAP_STYLE_URL)) { style ->
+                            onStyleLoaded(
+                                style
+                            )
+                        }
+                    }
+                    R.id.style_shadow -> {
+                        map.loadStyleUri(resources.getString(R.string.SHADOW_STYLE_URL)) { style ->
+                            onStyleLoaded(
+                                style
+                            )
+                        }
+                    }
+                    R.id.style_xray -> {
+                        map.loadStyleUri(resources.getString(R.string.XRAY_STYLE_URL)) { style ->
+                            onStyleLoaded(
+                                style
+                            )
+                        }
+                    }
+                    R.id.route_load_gpx -> {
+                        loadGPXDocument()
+                    }
+                    R.id.route_clear -> {
+                        map.getStyle { style ->
+                            style.getLayer("ROUTE")?.let { layer ->
+                                layer.visibility(Visibility.NONE)
+                            }
+                        }
+                    }
+                }
+                true
+            }
+            inflate(R.menu.main_menu)
+            show()
+        }
+    }
+
+    private fun loadGPXDocument() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+        }
+        resultLauncher.launch(intent)
+    }
+
+    private var resultLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val uri: Uri? = result.data?.data
+                Log.i("App", "loading '${uri?.path}'...")
+                if (uri != null) {
+                    contentResolver.openInputStream(uri)?.use { inputStream ->
+                        routePoints.clear()
+                        val route = GPX.read(inputStream).tracks
+                            .flatMap { it.segments }
+                            .flatMap { it.points }
+                            .forEach {
+                                routePoints.add(
+                                    Point.fromLngLat(
+                                        it.longitude.toDegrees(),
+                                        it.latitude.toDegrees()
+                                    )
+                                )
+                            }
+
+                        map.getStyle { style ->
+                            style.getSourceAs<GeoJsonSource>("ROUTE_SOURCE")?.let { source ->
+                                source.feature(
+                                    Feature.fromGeometry(
+                                        LineString.fromLngLats(routePoints)
+                                    )
+                                )
+                            }
+                            style.getLayer("ROUTE")?.let { layer ->
+                                layer.visibility(Visibility.VISIBLE)
+                            }
+                        }
+                    }
+                }
+            }
+        }
 }
