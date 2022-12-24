@@ -1,11 +1,10 @@
 package com.henrythasler.cyclemap2
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.os.ParcelFileDescriptor
-import android.provider.DocumentsContract
 import android.util.Log
 import android.view.View
 import android.widget.PopupMenu
@@ -16,10 +15,7 @@ import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.geojson.Feature
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
-import com.mapbox.maps.CameraOptions
-import com.mapbox.maps.MapView
-import com.mapbox.maps.MapboxMap
-import com.mapbox.maps.Style
+import com.mapbox.maps.*
 import com.mapbox.maps.extension.style.layers.addLayer
 import com.mapbox.maps.extension.style.layers.generated.lineLayer
 import com.mapbox.maps.extension.style.layers.getLayer
@@ -40,6 +36,7 @@ import com.mapbox.turf.TurfMeasurement
 import io.jenetics.jpx.GPX
 import java.lang.ref.WeakReference
 import java.text.DecimalFormat
+
 
 class MainMapActivity : AppCompatActivity() {
     private lateinit var locationPermissionHelper: LocationPermissionHelper
@@ -165,7 +162,14 @@ class MainMapActivity : AppCompatActivity() {
             lineColor(getColor(R.color.colorDistanceMeasurement))
         })
 
-        style.addSource(geoJsonSource("ROUTE_SOURCE"))
+        style.addSource(geoJsonSource("ROUTE_SOURCE") {
+            feature(
+                Feature.fromGeometry(
+                    LineString.fromLngLats(routePoints)
+                )
+            )
+        })
+
         style.addLayer(lineLayer("ROUTE", "ROUTE_SOURCE") {
             lineCap(LineCap.ROUND)
             lineJoin(LineJoin.ROUND)
@@ -366,30 +370,41 @@ class MainMapActivity : AppCompatActivity() {
                 val uri: Uri? = result.data?.data
                 Log.i("App", "loading '${uri?.path}'...")
                 if (uri != null) {
+                    // from https://developer.android.com/training/data-storage/shared/documents-files#kotlin
                     contentResolver.openInputStream(uri)?.use { inputStream ->
                         routePoints.clear()
-                        val route = GPX.read(inputStream).tracks
-                            .flatMap { it.segments }
-                            .flatMap { it.points }
-                            .forEach {
-                                routePoints.add(
-                                    Point.fromLngLat(
-                                        it.longitude.toDegrees(),
-                                        it.latitude.toDegrees()
+                        try {
+                            GPX.read(inputStream).tracks
+                                .flatMap { it.segments }
+                                .flatMap { it.points }
+                                .forEach {
+                                    routePoints.add(
+                                        Point.fromLngLat(
+                                            it.longitude.toDegrees(),
+                                            it.latitude.toDegrees()
+                                        )
                                     )
-                                )
-                            }
+                                }
+                        } catch (e: RuntimeException) {
+                            AlertDialog.Builder(this)
+                                .setMessage(e.message)
+                                .setNeutralButton("Whatever...") { dialog, which -> }
+                                .show()
+                        }
 
-                        map.getStyle { style ->
-                            style.getSourceAs<GeoJsonSource>("ROUTE_SOURCE")?.let { source ->
-                                source.feature(
-                                    Feature.fromGeometry(
-                                        LineString.fromLngLats(routePoints)
+                        if (routePoints.size > 0) {
+                            map.getStyle { style ->
+                                val geometry = LineString.fromLngLats(routePoints)
+                                style.getSourceAs<GeoJsonSource>("ROUTE_SOURCE")?.feature(
+                                    Feature.fromGeometry(geometry)
+                                )
+                                style.getLayer("ROUTE")?.visibility(Visibility.VISIBLE)
+                                mapView.getMapboxMap().setCamera(
+                                    map.cameraForGeometry(
+                                        geometry,
+                                        EdgeInsets(10.0, 10.0, 10.0, 10.0)
                                     )
                                 )
-                            }
-                            style.getLayer("ROUTE")?.let { layer ->
-                                layer.visibility(Visibility.VISIBLE)
                             }
                         }
                     }
