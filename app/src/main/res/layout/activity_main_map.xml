@@ -49,21 +49,50 @@
         app:layout_anchorGravity="top|center"
         app:srcCompat="@drawable/ic_baseline_menu_24" />
 
+    <ImageButton
+        android:id="@+id/saveAsRoute"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="center_horizontal|top"
+        android:background="@drawable/rect_rounded_button"
+        android:baselineAlignBottom="false"
+        android:visibility="invisible"
+        app:layout_anchor="@+id/menuButton"
+        app:layout_anchorGravity="top|center"
+        app:srcCompat="@drawable/ic_outline_file_download_24" />
+
     <TextView
         android:id="@+id/distanceText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_vertical|end"
+        android:background="@drawable/rect_rounded_shape"
+        android:backgroundTint="#BFF6F4E7"
+        android:backgroundTintMode="src_in"
         android:fontFamily="sans-serif-medium"
         android:shadowColor="@color/white"
         android:shadowRadius="10"
         android:text="TextView"
-        android:textAlignment="textStart"
         android:textColor="@color/black"
         android:textSize="18sp"
         android:textStyle="italic"
         android:visibility="invisible"
         app:layout_anchor="@+id/crosshair"
         app:layout_anchorGravity="end|center" />
+
+    <TextView
+        android:id="@+id/routeDetails"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:background="@drawable/rect_rounded_shape"
+        android:backgroundTint="#BFF6F4E7"
+        android:backgroundTintMode="src_in"
+        android:text="RouteDetails"
+        android:textSize="14sp"
+        android:typeface="normal"
+        android:visibility="invisible"
+        app:layout_anchor="@+id/mapView"
+        app:layout_anchorGravity="start|top" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

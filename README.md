@@ -11,17 +11,17 @@ An Android app for offline usage of vector-tiles
 ### Features
 
 - [x] Use latest mapbox SDK (10.x)
-- [ ] Save/restore last camera position
-- [ ] User location
+- [x] Save/restore last camera position
+- [x] User location
 - [ ] Geosearch
-- [ ] Crosshair
+- [x] Crosshair
 - [ ] map options (scale, hillshading, style select)
-- [ ] Distance measurement
+- [x] Distance measurement
 - [ ] Record/show track; 
 - [ ] track statistics
 - [ ] clear current track
 - [ ] Share map position
-- [ ] Load/show route (GPX)
+- [x] Load/show route (GPX)
 - [ ] Inspect element
 - [ ] cache management (clear, invalidate)
 
