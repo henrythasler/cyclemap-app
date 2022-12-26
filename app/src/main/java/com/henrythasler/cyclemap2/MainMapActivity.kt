@@ -3,11 +3,14 @@ package com.henrythasler.cyclemap2
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.PorterDuff
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
 import android.view.View
+import android.widget.ImageButton
 import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -39,6 +42,7 @@ import io.jenetics.jpx.WayPoint
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.IOException
+import java.lang.Integer.max
 import java.lang.ref.WeakReference
 import java.text.DecimalFormat
 
@@ -77,6 +81,7 @@ class MainMapActivity : AppCompatActivity() {
 
     private val cameraChangeListener = OnCameraChangeListener {
         if (distanceMeasurement) {
+            distanceMeasurementPoints[distanceMeasurementPoints.lastIndex] = map.cameraState.center
             updateDistanceMeasurement()
         }
     }
@@ -113,6 +118,10 @@ class MainMapActivity : AppCompatActivity() {
 
         val crosshairButton: View = findViewById(R.id.crosshair)
         crosshairButton.setOnClickListener { view -> onCrosshairClick(view) }
+        crosshairButton.setOnLongClickListener { view ->
+            onCrosshairLongClick(view)
+            true
+        }
 
         findViewById<View?>(R.id.saveAsRoute).setOnClickListener { saveGPXDocument() }
 
@@ -120,38 +129,6 @@ class MainMapActivity : AppCompatActivity() {
         mapView.gestures.addOnMoveListener(moveListener)
         map.addOnCameraChangeListener(cameraChangeListener)
         mapView.location2.addOnIndicatorPositionChangedListener(onIndicatorPositionChangedListener)
-
-        // set up drawer menu
-/*
-        val mDrawerLayout: DrawerLayout = findViewById(R.id.drawer_layout)
-        val navigationView: NavigationView = findViewById(R.id.nav_view)
-        navigationView.setNavigationItemSelectedListener { menuItem ->
-            // close drawer when item is tapped
-            mDrawerLayout.closeDrawers()
-
-            when (menuItem.itemId) {
-                R.id.nav_hillshading -> {
-                    mapView.getMapboxMap().getStyle {
-                        it.getLayer("hillshading")?.let { layer ->
-                            layer.visibility( if(layer.visibility == Visibility.NONE) Visibility.VISIBLE else Visibility.NONE)
-                        }
-                    }
-                }
-                R.id.nav_shareposition -> {
-                    Toast.makeText(this, "nav_shareposition", Toast.LENGTH_LONG).show()
-                }
-            }
-            true
-        }
-*/
-/*
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-        )
-        window.statusBarColor = Color.parseColor("#80111111");
-        window.navigationBarColor = Color.parseColor("#80111111");
- */
     }
 
     private fun onStyleLoaded(style: Style) {
@@ -224,7 +201,10 @@ class MainMapActivity : AppCompatActivity() {
             }
         } else {
             if (distanceMeasurement) {
-                distanceMeasurementPoints.add(map.cameraState.center)
+                // add only if current point differs from last point to prevent accidentally adding the same point
+                if(distanceMeasurementPoints[max(0, distanceMeasurementPoints.lastIndex - 1)] != map.cameraState.center) {
+                    distanceMeasurementPoints.add(map.cameraState.center)
+                }
             } else {
                 distanceMeasurement = true
                 clearPoints = true
@@ -240,27 +220,24 @@ class MainMapActivity : AppCompatActivity() {
 
         distanceText.visibility = if (distanceMeasurement) View.VISIBLE else View.INVISIBLE
 
-        findViewById<View?>(R.id.saveAsRoute).visibility =
-            if (distanceMeasurementPoints.size > 2) View.VISIBLE else View.INVISIBLE
-
-        val drawLineSource =
-            map.getStyle()?.getSourceAs<GeoJsonSource>("DISTANCE_MEASUREMENT_SOURCE")
-        drawLineSource?.feature(
-            Feature.fromGeometry(
-                LineString.fromLngLats(
-                    distanceMeasurementPoints
-                )
-            )
-        )
-
         map.getStyle() {
             it.getLayer("DISTANCE_MEASUREMENT")
                 ?.visibility(if (distanceMeasurement) Visibility.VISIBLE else Visibility.NONE)
         }
+
+        Log.i("App", "distanceMeasurementPoints.size=${distanceMeasurementPoints.size}")
+        updateDistanceMeasurement()
+    }
+
+    private fun onCrosshairLongClick(view: View?) {
+        if(distanceMeasurement && (distanceMeasurementPoints.size > 2)) {
+            distanceMeasurementPoints.removeAt(max(0, distanceMeasurementPoints.lastIndex - 1))
+            Log.i("App", "distanceMeasurementPoints.size=${distanceMeasurementPoints.size}")
+            updateDistanceMeasurement()
+        }
     }
 
     private fun updateDistanceMeasurement() {
-        distanceMeasurementPoints[distanceMeasurementPoints.lastIndex] = map.cameraState.center
         val drawLineSource =
             map.getStyle()?.getSourceAs<GeoJsonSource>("DISTANCE_MEASUREMENT_SOURCE")
         drawLineSource?.feature(
@@ -270,6 +247,9 @@ class MainMapActivity : AppCompatActivity() {
                 )
             )
         )
+
+        findViewById<View?>(R.id.saveAsRoute).visibility =
+            if (distanceMeasurementPoints.size > 2) View.VISIBLE else View.INVISIBLE
 
         val distance =
             TurfMeasurement.length(LineString.fromLngLats(distanceMeasurementPoints), UNIT_METERS)
@@ -372,23 +352,17 @@ class MainMapActivity : AppCompatActivity() {
                 when (it.itemId) {
                     R.id.style_cyclemap -> {
                         map.loadStyleUri(resources.getString(R.string.CYCLEMAP_STYLE_URL)) { style ->
-                            onStyleLoaded(
-                                style
-                            )
+                            onStyleLoaded(style)
                         }
                     }
                     R.id.style_shadow -> {
                         map.loadStyleUri(resources.getString(R.string.SHADOW_STYLE_URL)) { style ->
-                            onStyleLoaded(
-                                style
-                            )
+                            onStyleLoaded(style)
                         }
                     }
                     R.id.style_xray -> {
                         map.loadStyleUri(resources.getString(R.string.XRAY_STYLE_URL)) { style ->
-                            onStyleLoaded(
-                                style
-                            )
+                            onStyleLoaded(style)
                         }
                     }
                     R.id.route_load_gpx -> {
@@ -400,7 +374,15 @@ class MainMapActivity : AppCompatActivity() {
                                 layer.visibility(Visibility.NONE)
                             }
                         }
+                        routePoints.clear()
                         findViewById<TextView>(R.id.routeDetails).visibility = View.INVISIBLE
+                    }
+                    R.id.hillshading -> {
+                        mapView.getMapboxMap().getStyle { style ->
+                            style.getLayer("hillshading")?.let { layer ->
+                                layer.visibility( if(layer.visibility == Visibility.NONE) Visibility.VISIBLE else Visibility.NONE)
+                            }
+                        }
                     }
                 }
                 true
@@ -465,9 +447,13 @@ class MainMapActivity : AppCompatActivity() {
                             val routeDetails: TextView = findViewById(R.id.routeDetails)
 
                             if (distance > 5000) {
-                                routeDetails.text = "${routePoints.size.toString()} Wpts\n${DecimalFormat("#.0 km").format(distance / 1000)}"
+                                routeDetails.text = "${routePoints.size.toString()} Wpts\n${
+                                    DecimalFormat("#.0 km").format(distance / 1000)
+                                }"
                             } else {
-                                routeDetails.text = "${routePoints.size.toString()} Wpts\n${DecimalFormat("# m").format(distance)}"
+                                routeDetails.text = "${routePoints.size.toString()} Wpts\n${
+                                    DecimalFormat("# m").format(distance)
+                                }"
                             }
                             routeDetails.visibility = View.VISIBLE
                         }
@@ -497,7 +483,12 @@ class MainMapActivity : AppCompatActivity() {
                                 val track = GPX.builder().addTrack { track ->
                                     distanceMeasurementPoints.forEach { point ->
                                         track.addSegment { segment ->
-                                            segment.addPoint(WayPoint.of(point.latitude(), point.longitude()))
+                                            segment.addPoint(
+                                                WayPoint.of(
+                                                    point.latitude(),
+                                                    point.longitude()
+                                                )
+                                            )
                                         }
                                     }
                                 }.build()

@@ -13,4 +13,5 @@
     <color name="map_background">#f6f4e7</color>
     <color name="map_water">#7babcd</color>
     <color name="map_building">#444</color>
+    <color name="locationActive">#8BC34A</color>
 </resources>

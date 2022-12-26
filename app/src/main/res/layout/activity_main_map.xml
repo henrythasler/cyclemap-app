@@ -32,8 +32,10 @@
         android:id="@+id/locationButton"
         android:layout_width="32dp"
         android:layout_height="32dp"
-        android:layout_marginBottom="30dp"
+        android:layout_marginBottom="200dp"
         android:background="@drawable/rect_rounded_button"
+        android:tint="@color/black"
+        android:tintMode="src_in"
         app:layout_anchor="@+id/mapView"
         app:layout_anchorGravity="bottom|start"
         app:srcCompat="@drawable/ic_baseline_my_location_24" />
@@ -42,23 +44,23 @@
         android:id="@+id/menuButton"
         android:layout_width="32dp"
         android:layout_height="32dp"
-        android:layout_gravity="center_horizontal|top"
+        android:layout_gravity="bottom|center_horizontal"
         android:background="@drawable/rect_rounded_button"
         android:baselineAlignBottom="false"
         app:layout_anchor="@+id/locationButton"
-        app:layout_anchorGravity="top|center"
+        app:layout_anchorGravity="bottom|center"
         app:srcCompat="@drawable/ic_baseline_menu_24" />
 
     <ImageButton
         android:id="@+id/saveAsRoute"
         android:layout_width="32dp"
         android:layout_height="32dp"
-        android:layout_gravity="center_horizontal|top"
+        android:layout_gravity="bottom|center_horizontal"
         android:background="@drawable/rect_rounded_button"
         android:baselineAlignBottom="false"
         android:visibility="invisible"
         app:layout_anchor="@+id/menuButton"
-        app:layout_anchorGravity="top|center"
+        app:layout_anchorGravity="bottom|center"
         app:srcCompat="@drawable/ic_outline_file_download_24" />
 
     <TextView

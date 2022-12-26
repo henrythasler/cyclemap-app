@@ -28,8 +28,9 @@
     </item>
     <item android:title="Advanced" >
         <menu >
-            <item android:title="Invalidate Cache" />
-            <item android:title="Clear Cache" ></item>
+            <item
+                android:id="@+id/hillshading"
+                android:title="@string/menu_hillshading"/>
         </menu>
     </item>
 </menu>
