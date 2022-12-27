@@ -51,6 +51,7 @@ dependencies {
 
     implementation 'com.mapbox.maps:android:10.10.0'
     implementation 'com.mapbox.mapboxsdk:mapbox-sdk-turf:6.9.0'
+    implementation 'com.google.android.gms:play-services-location:21.0.1'
 
     implementation 'stax:stax:1.2.0'
     implementation 'io.jenetics:jpx:2.3.0'

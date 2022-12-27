@@ -3,8 +3,6 @@ package com.henrythasler.cyclemap2
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.PorterDuff
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
@@ -34,6 +32,7 @@ import com.mapbox.maps.plugin.delegates.listeners.OnCameraChangeListener
 import com.mapbox.maps.plugin.gestures.OnMoveListener
 import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
+import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location2
 import com.mapbox.turf.TurfConstants.UNIT_METERS
 import com.mapbox.turf.TurfMeasurement
@@ -61,6 +60,7 @@ class MainMapActivity : AppCompatActivity() {
 
     private var trackRecording: Boolean = false
     private var trackPoints: MutableList<Point> = mutableListOf()
+    private var lastRecordUpdateTimestamp: Long = 0
 
     private val moveListener: OnMoveListener = object : OnMoveListener {
         override fun onMoveBegin(detector: MoveGestureDetector) {
@@ -89,6 +89,14 @@ class MainMapActivity : AppCompatActivity() {
     private val onIndicatorPositionChangedListener = OnIndicatorPositionChangedListener {
         if (followLocation)
             mapView.getMapboxMap().setCamera(CameraOptions.Builder().center(it).build())
+
+        if(trackRecording) {
+            if (SystemClock.elapsedRealtime() - lastRecordUpdateTimestamp > 1000) {
+                trackPoints.add(it)
+                updateTrack()
+                lastRecordUpdateTimestamp = SystemClock.elapsedRealtime()
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -124,6 +132,10 @@ class MainMapActivity : AppCompatActivity() {
         }
 
         findViewById<View?>(R.id.saveAsRoute).setOnClickListener { saveGPXDocument() }
+        findViewById<ImageButton>(R.id.recordTrack).setOnClickListener { onRecordTrackButton() }
+
+//        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+//        startService(Intent(this, MapService::class.java))
 
         // catch map events
         mapView.gestures.addOnMoveListener(moveListener)
@@ -174,13 +186,29 @@ class MainMapActivity : AppCompatActivity() {
                 )
             }
         })
-
         style.addLayer(lineLayer("ROUTE", "ROUTE_SOURCE") {
             lineCap(LineCap.ROUND)
             lineJoin(LineJoin.ROUND)
             lineOpacity(0.75)
-            lineWidth(10.0)
+            lineWidth(9.0)
             lineColor(getColor(R.color.colorRoute))
+        })
+
+        style.addSource(geoJsonSource("TRACK_SOURCE") {
+            if (trackPoints.size > 0) {
+                feature(
+                    Feature.fromGeometry(
+                        LineString.fromLngLats(trackPoints)
+                    )
+                )
+            }
+        })
+        style.addLayer(lineLayer("TRACK", "TRACK_SOURCE") {
+            lineCap(LineCap.ROUND)
+            lineJoin(LineJoin.ROUND)
+            lineOpacity(0.8)
+            lineWidth(9.0)
+            lineColor(getColor(R.color.colorTrack))
         })
 
     }
@@ -188,9 +216,9 @@ class MainMapActivity : AppCompatActivity() {
     private fun onCrosshairClick(view: View?) {
         var isDoubleClick = false
         if (SystemClock.elapsedRealtime() - lastClickedTimestamp < 500) {
-            isDoubleClick = true;
+            isDoubleClick = true
         }
-        lastClickedTimestamp = SystemClock.elapsedRealtime();
+        lastClickedTimestamp = SystemClock.elapsedRealtime()
 
         var clearPoints = false
         val distanceText: TextView = findViewById(R.id.distanceText)
@@ -220,7 +248,7 @@ class MainMapActivity : AppCompatActivity() {
 
         distanceText.visibility = if (distanceMeasurement) View.VISIBLE else View.INVISIBLE
 
-        map.getStyle() {
+        map.getStyle {
             it.getLayer("DISTANCE_MEASUREMENT")
                 ?.visibility(if (distanceMeasurement) Visibility.VISIBLE else Visibility.NONE)
         }
@@ -259,6 +287,36 @@ class MainMapActivity : AppCompatActivity() {
             distanceText.text = DecimalFormat("#.0 km").format(distance / 1000)
         } else {
             distanceText.text = DecimalFormat("# m").format(distance)
+        }
+    }
+
+    private fun onRecordTrackButton() {
+        trackRecording = !trackRecording
+        trackPoints.clear()
+        if(!trackRecording) {
+            trackPoints.add(map.cameraState.center)
+            trackPoints.add(map.cameraState.center)
+            map.getStyle()?.getSourceAs<GeoJsonSource>("TRACK_SOURCE")?.feature(
+                Feature.fromGeometry(
+                    LineString.fromLngLats(trackPoints)
+                )
+            )
+        }
+
+        map.getStyle { style ->
+            style.getLayer("TRACK")?.visibility(if(trackRecording) Visibility.VISIBLE else Visibility.NONE)
+        }
+    }
+
+    private fun updateTrack() {
+        if (trackPoints.size >= 2) {
+            val drawLineSource =
+                map.getStyle()?.getSourceAs<GeoJsonSource>("TRACK_SOURCE")
+            drawLineSource?.feature(
+                Feature.fromGeometry(
+                    LineString.fromLngLats(trackPoints)
+                )
+            )
         }
     }
 
@@ -338,17 +396,23 @@ class MainMapActivity : AppCompatActivity() {
             Log.i("App", "enabling location tracking...")
             mapView.location2.apply {
                 enabled = true
-                pulsingEnabled = true
-                puckBearingEnabled = true
+//                pulsingEnabled = true
+//                pulsingColor = Color.parseColor("#00c000")
+//                pulsingMaxRadius = 32.0F
+//                puckBearingEnabled = true
+//                puckBearingSource = PuckBearingSource.HEADING
+                showAccuracyRing = true
+                locationPuck = createDefault2DPuck(this@MainMapActivity, withBearing = true)
             }
             followLocation = true
         }
+        findViewById<ImageButton>(R.id.recordTrack).visibility = if(mapView.location2.enabled) View.VISIBLE else View.INVISIBLE
     }
 
     private fun onMenuButton(view: View?) {
         PopupMenu(this, view).apply {
             // MainActivity implements OnMenuItemClickListener
-            setOnMenuItemClickListener { it ->
+            setOnMenuItemClickListener {
                 when (it.itemId) {
                     R.id.style_cyclemap -> {
                         map.loadStyleUri(resources.getString(R.string.CYCLEMAP_STYLE_URL)) { style ->
@@ -370,9 +434,7 @@ class MainMapActivity : AppCompatActivity() {
                     }
                     R.id.route_clear -> {
                         map.getStyle { style ->
-                            style.getLayer("ROUTE")?.let { layer ->
-                                layer.visibility(Visibility.NONE)
-                            }
+                            style.getLayer("ROUTE")?.visibility(Visibility.NONE)
                         }
                         routePoints.clear()
                         findViewById<TextView>(R.id.routeDetails).visibility = View.INVISIBLE
@@ -447,11 +509,11 @@ class MainMapActivity : AppCompatActivity() {
                             val routeDetails: TextView = findViewById(R.id.routeDetails)
 
                             if (distance > 5000) {
-                                routeDetails.text = "${routePoints.size.toString()} Wpts\n${
+                                routeDetails.text = "${routePoints.size} Wpts\n${
                                     DecimalFormat("#.0 km").format(distance / 1000)
                                 }"
                             } else {
-                                routeDetails.text = "${routePoints.size.toString()} Wpts\n${
+                                routeDetails.text = "${routePoints.size} Wpts\n${
                                     DecimalFormat("# m").format(distance)
                                 }"
                             }
