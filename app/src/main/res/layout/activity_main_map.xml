@@ -66,12 +66,12 @@
         android:layout_width="32dp"
         android:layout_height="32dp"
         android:layout_gravity="center_horizontal|top"
-        android:background="@drawable/ic_baseline_fiber_manual_record_24"
+        android:background="@drawable/rect_rounded_button"
         android:baselineAlignBottom="false"
         android:visibility="invisible"
         app:layout_anchor="@+id/locationButton"
         app:layout_anchorGravity="center|top"
-        app:srcCompat="@drawable/ic_outline_file_download_24" />
+        app:srcCompat="@drawable/ic_baseline_fiber_manual_record_24" />
 
     <TextView
         android:id="@+id/distanceText"

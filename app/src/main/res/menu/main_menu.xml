@@ -13,6 +13,13 @@
                 android:title="Clear Route" />
         </menu>
     </item>
+    <item android:title="Track">
+        <menu>
+            <item
+                android:id="@+id/saveTrackGpx"
+                android:title="Save Track as GPX..." />
+        </menu>
+    </item>
     <item android:title="Style">
         <menu>
             <item
@@ -31,6 +38,9 @@
             <item
                 android:id="@+id/hillshading"
                 android:title="@string/menu_hillshading"/>
+            <item
+                android:id="@+id/keepScreenOn"
+                android:title="@string/screen_always_on" />
         </menu>
     </item>
 </menu>

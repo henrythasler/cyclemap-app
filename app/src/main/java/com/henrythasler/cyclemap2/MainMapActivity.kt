@@ -7,15 +7,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.net.Uri
-import android.os.Bundle
-import android.os.IBinder
-import android.os.SystemClock
+import android.os.*
 import android.util.Log
 import android.view.View
+import android.view.WindowManager
 import android.widget.ImageButton
 import android.widget.PopupMenu
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.mapbox.android.gestures.MoveGestureDetector
@@ -59,9 +57,10 @@ class MainMapActivity : AppCompatActivity() {
     private var followLocation: Boolean = false
     private var lastLocationUpdateTimestamp: Long = 0
 
-    private lateinit var mLocationService: LocationService
-    private var mBound: Boolean = false
-    lateinit var mServiceIntent: Intent
+    /** setup and interface for the location service to provide location updates when the
+     * app is minimized */
+    private lateinit var locationService: LocationService
+    private var locationServiceBound: Boolean = false
 
     private var distanceMeasurement: Boolean = false
     private var lastClickedTimestamp: Long = 0
@@ -70,11 +69,14 @@ class MainMapActivity : AppCompatActivity() {
     private var routePoints: MutableList<Point> = mutableListOf()
 
     private var trackRecording: Boolean = false
-    private var lastRecordUpdateTimestamp: Long = 0
+    private var trackPoints: List<Point> = listOf()
+    private val trackRecordingTimerHandler = Handler(Looper.getMainLooper())
+
+    private var screenAlwaysOn: Boolean = false
 
     private val moveListener: OnMoveListener = object : OnMoveListener {
         override fun onMoveBegin(detector: MoveGestureDetector) {
-            Log.d("App", "tracking disabled")
+            Log.d(TAG, "tracking disabled")
             followLocation = false
         }
 
@@ -85,9 +87,23 @@ class MainMapActivity : AppCompatActivity() {
         override fun onMoveEnd(detector: MoveGestureDetector) {
             // this is a workaround to reliably set the focalPoint for double-tap-zoom
             mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
-            Log.i("App", "onMoveEnd(): focalPoint=" + mapView.gestures.focalPoint.toString())
+            Log.i(TAG, "onMoveEnd(): focalPoint=" + mapView.gestures.focalPoint.toString())
         }
     }
+
+    /**
+     * It's basically an event-loop-based timer callback that does something and triggers itself again if the
+     * right conditions are met.
+     */
+    private val trackTimerRunnable: Runnable = object : Runnable {
+        override fun run() {
+            if (trackRecording && locationServiceBound) {
+                updateTrack()
+                trackRecordingTimerHandler.postDelayed(this, TRACK_RECORDING_INTERVAL)
+            }
+        }
+    }
+
 
     private val cameraChangeListener = OnCameraChangeListener {
         if (distanceMeasurement) {
@@ -97,38 +113,28 @@ class MainMapActivity : AppCompatActivity() {
     }
 
     private val onIndicatorPositionChangedListener = OnIndicatorPositionChangedListener {
-        if (followLocation)
-            if (SystemClock.elapsedRealtime() - lastLocationUpdateTimestamp > 50) {
-                mapView.getMapboxMap().setCamera(CameraOptions.Builder().center(it).build())
-                lastLocationUpdateTimestamp = SystemClock.elapsedRealtime()
-            }
-
-        if(trackRecording) {
-            if ((SystemClock.elapsedRealtime() - lastRecordUpdateTimestamp > 1000) && mBound) {
-//                locationService.trackPoints.add(it)
-                Log.d("App", "locationService.trackPoints.count=${mLocationService.trackPoints.count()}")
-                if(mLocationService.trackPoints.size > 2) {
-                    Log.d("App", "trackPoints.last=${mLocationService.trackPoints.last()}")
-                }
-                updateTrack()
-                lastRecordUpdateTimestamp = SystemClock.elapsedRealtime()
-            }
+        if (followLocation) {
+            mapView.getMapboxMap().setCamera(CameraOptions.Builder().center(it).build())
+            mapView.gestures.focalPoint = map.pixelForCoordinate(it)
         }
     }
 
     /** Defines callbacks for service binding, passed to bindService()  */
-    private val connection = object : ServiceConnection {
+    private val locationServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
             // We've bound to LocalService, cast the IBinder and get LocalService instance
             val binder = service as LocationService.LocalBinder
-            mLocationService = binder.getService()
-            mBound = true
-            Log.i("App", "onServiceConnected")
+            locationService = binder.getService()
+            locationServiceBound = true
+            Log.i(TAG, "onServiceConnected")
+
+            /** start the timer to regularly update the UI with the latest track (information) */
+            trackRecordingTimerHandler.post(trackTimerRunnable)
         }
 
         override fun onServiceDisconnected(arg0: ComponentName) {
-            mBound = false
-            Log.i("App", "onServiceDisconnected")
+            locationServiceBound = false
+            Log.i(TAG, "onServiceDisconnected")
         }
     }
 
@@ -147,7 +153,7 @@ class MainMapActivity : AppCompatActivity() {
         // location tracking
         locationPermissionHelper = LocationPermissionHelper(WeakReference(this))
         locationPermissionHelper.checkPermissions {
-            Log.i("App", "permissions ok")
+            Log.i(TAG, "permissions ok")
         }
 
         // set up user interaction
@@ -167,50 +173,10 @@ class MainMapActivity : AppCompatActivity() {
         findViewById<View?>(R.id.saveAsRoute).setOnClickListener { saveGPXDocument() }
         findViewById<ImageButton>(R.id.recordTrack).setOnClickListener { onRecordTrackButton() }
 
-        mServiceIntent = Intent(this, LocationService::class.java).also { intent ->
-            bindService(intent, connection, Context.BIND_AUTO_CREATE)
-        }
-
-//        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-//        if (!Util.isMyServiceRunning(mLocationService.javaClass, this@MainMapActivity)) {
-//            startService(mServiceIntent)
-//            Toast.makeText(
-//                this,
-//                "service_start_successfully",
-//                Toast.LENGTH_SHORT
-//            ).show()
-//        } else {
-//            Toast.makeText(
-//                this,
-//                "service_already_running",
-//                Toast.LENGTH_SHORT
-//            ).show()
-//        }
-
         // catch map events
         mapView.gestures.addOnMoveListener(moveListener)
         map.addOnCameraChangeListener(cameraChangeListener)
         mapView.location2.addOnIndicatorPositionChangedListener(onIndicatorPositionChangedListener)
-    }
-
-//    override fun onStart() {
-//        super.onStart()
-//    }
-//
-//    override fun onStop() {
-//        super.onStop()
-//
-//    }
-
-    override fun onDestroy() {
-        unbindService(connection)
-        mBound = false
-//        if (::mServiceIntent.isInitialized) {
-//            Log.i("App", "stopping service")
-//            stopService(mServiceIntent)
-//        }
-        super.onDestroy()
     }
 
     private fun onStyleLoaded(style: Style) {
@@ -220,7 +186,7 @@ class MainMapActivity : AppCompatActivity() {
 
         // make sure we always zoom into the map center
         mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
-        Log.i("App", "onStyleLoaded(): focalPoint=" + mapView.gestures.focalPoint.toString())
+        Log.i(TAG, "onStyleLoaded(): focalPoint=" + mapView.gestures.focalPoint.toString())
 
         style.addSource(geoJsonSource("DISTANCE_MEASUREMENT_SOURCE") {
             if (distanceMeasurementPoints.size > 0) {
@@ -265,20 +231,18 @@ class MainMapActivity : AppCompatActivity() {
         })
 
         style.addSource(geoJsonSource("TRACK_SOURCE") {
-            if (mBound) {
-                if (mLocationService.trackPoints.size > 0) {
-                    feature(
-                        Feature.fromGeometry(
-                            LineString.fromLngLats(mLocationService.trackPoints)
-                        )
+            if (trackPoints.isNotEmpty()) {
+                feature(
+                    Feature.fromGeometry(
+                        LineString.fromLngLats(trackPoints)
                     )
-                }
+                )
             }
         })
         style.addLayer(lineLayer("TRACK", "TRACK_SOURCE") {
             lineCap(LineCap.ROUND)
             lineJoin(LineJoin.ROUND)
-            lineOpacity(0.8)
+            lineOpacity(0.75)
             lineWidth(9.0)
             lineColor(getColor(R.color.colorTrack))
         })
@@ -302,7 +266,11 @@ class MainMapActivity : AppCompatActivity() {
         } else {
             if (distanceMeasurement) {
                 // add only if current point differs from last point to prevent accidentally adding the same point
-                if(distanceMeasurementPoints[max(0, distanceMeasurementPoints.lastIndex - 1)] != map.cameraState.center) {
+                if (distanceMeasurementPoints[max(
+                        0,
+                        distanceMeasurementPoints.lastIndex - 1
+                    )] != map.cameraState.center
+                ) {
                     distanceMeasurementPoints.add(map.cameraState.center)
                 }
             } else {
@@ -325,14 +293,14 @@ class MainMapActivity : AppCompatActivity() {
                 ?.visibility(if (distanceMeasurement) Visibility.VISIBLE else Visibility.NONE)
         }
 
-        Log.i("App", "distanceMeasurementPoints.size=${distanceMeasurementPoints.size}")
+        Log.i(TAG, "distanceMeasurementPoints.size=${distanceMeasurementPoints.size}")
         updateDistanceMeasurement()
     }
 
     private fun onCrosshairLongClick(view: View?) {
-        if(distanceMeasurement && (distanceMeasurementPoints.size > 2)) {
+        if (distanceMeasurement && (distanceMeasurementPoints.size > 2)) {
             distanceMeasurementPoints.removeAt(max(0, distanceMeasurementPoints.lastIndex - 1))
-            Log.i("App", "distanceMeasurementPoints.size=${distanceMeasurementPoints.size}")
+            Log.i(TAG, "distanceMeasurementPoints.size=${distanceMeasurementPoints.size}")
             updateDistanceMeasurement()
         }
     }
@@ -362,33 +330,70 @@ class MainMapActivity : AppCompatActivity() {
         }
     }
 
+    private fun onLocateButton(view: View) {
+        if (mapView.location2.enabled) {
+            // jump back to current location if the user has manually scrolled away
+            if (!followLocation) {
+                Log.i(TAG, "jumping back to location...")
+                followLocation = true
+            }
+            // disable tracking if the user is currently tracking the position
+            else {
+                Log.i(TAG, "disabling location tracking...")
+                mapView.location2.enabled = false
+                disableLocationService()
+            }
+        } else {
+            // enable location tracking
+            Log.i(TAG, "enabling location tracking...")
+            mapView.location2.apply {
+                enabled = true
+//                pulsingEnabled = true
+//                pulsingColor = Color.parseColor("#00c000")
+//                pulsingMaxRadius = 32.0F
+//                puckBearingEnabled = true
+//                puckBearingSource = PuckBearingSource.HEADING
+                showAccuracyRing = true
+                locationPuck = createDefault2DPuck(this@MainMapActivity, withBearing = true)
+            }
+            followLocation = true
+        }
+        findViewById<ImageButton>(R.id.recordTrack).visibility =
+            if (mapView.location2.enabled) View.VISIBLE else View.INVISIBLE
+    }
+
     private fun onRecordTrackButton() {
         trackRecording = !trackRecording
-        if(mBound) {
-            mLocationService.trackPoints.clear()
-            if (!trackRecording) {
-                mLocationService.trackPoints.add(map.cameraState.center)
-                mLocationService.trackPoints.add(map.cameraState.center)
-                map.getStyle()?.getSourceAs<GeoJsonSource>("TRACK_SOURCE")?.feature(
-                    Feature.fromGeometry(
-                        LineString.fromLngLats(mLocationService.trackPoints)
-                    )
-                )
-            }
-        }
 
-        map.getStyle { style ->
-            style.getLayer("TRACK")?.visibility(if(trackRecording) Visibility.VISIBLE else Visibility.NONE)
+        /** start the location service to record the track */
+        if (trackRecording && !locationServiceBound) {
+            Intent(this, LocationService::class.java).also { intent ->
+                bindService(intent, locationServiceConnection, Context.BIND_AUTO_CREATE)
+            }
+        } else {
+            disableLocationService()
+        }
+    }
+
+    private fun disableLocationService() {
+        /** stop the service when track recording is stopped */
+        if(locationServiceBound) {
+            unbindService(locationServiceConnection)
+            locationServiceBound = false
+            trackRecording = false
         }
     }
 
     private fun updateTrack() {
-        if (mLocationService.trackPoints.size >= 2) {
-            val drawLineSource =
-                map.getStyle()?.getSourceAs<GeoJsonSource>("TRACK_SOURCE")
-            drawLineSource?.feature(
+        if (locationService.trackPoints.size >= 2) {
+            /** create an immutable copy to avoid GeoJson-parser crashes.
+             * see https://www.baeldung.com/kotlin/mutable-collection-to-immutable */
+            trackPoints = locationService.trackPoints.toList()
+
+            /** update track layer with the latest track data*/
+            map.getStyle()?.getSourceAs<GeoJsonSource>("TRACK_SOURCE")?.feature(
                 Feature.fromGeometry(
-                    LineString.fromLngLats(mLocationService.trackPoints)
+                    LineString.fromLngLats(trackPoints)
                 )
             )
         }
@@ -405,7 +410,7 @@ class MainMapActivity : AppCompatActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        Log.i("App", "onSaveInstanceState()")
+        Log.i(TAG, "onSaveInstanceState()")
 
         // see https://developer.android.com/training/data-storage/shared-preferences
         with(getPreferences(MODE_PRIVATE).edit()) {
@@ -445,42 +450,12 @@ class MainMapActivity : AppCompatActivity() {
             )
             .build()
         Log.i(
-            "App",
+            TAG,
             "restoreSettings(): center=" + cameraPosition.center?.coordinates()
                 .toString() + " zoom=" + cameraPosition.zoom.toString()
         )
         // set camera position
         map.setCamera(cameraPosition)
-    }
-
-    private fun onLocateButton(view: View) {
-        if (mapView.location2.enabled) {
-            // jump back to current location if the user has manually scrolled away
-            if (!followLocation) {
-                Log.i("App", "jumping back to location...")
-                followLocation = true
-            }
-            // disable tracking if the user is currently tracking the position
-            else {
-                Log.i("App", "disabling location tracking...")
-                mapView.location2.enabled = false
-            }
-        } else {
-            // enable location tracking
-            Log.i("App", "enabling location tracking...")
-            mapView.location2.apply {
-                enabled = true
-//                pulsingEnabled = true
-//                pulsingColor = Color.parseColor("#00c000")
-//                pulsingMaxRadius = 32.0F
-//                puckBearingEnabled = true
-//                puckBearingSource = PuckBearingSource.HEADING
-                showAccuracyRing = true
-                locationPuck = createDefault2DPuck(this@MainMapActivity, withBearing = true)
-            }
-            followLocation = true
-        }
-        findViewById<ImageButton>(R.id.recordTrack).visibility = if(mapView.location2.enabled) View.VISIBLE else View.INVISIBLE
     }
 
     private fun onMenuButton(view: View?) {
@@ -516,9 +491,19 @@ class MainMapActivity : AppCompatActivity() {
                     R.id.hillshading -> {
                         mapView.getMapboxMap().getStyle { style ->
                             style.getLayer("hillshading")?.let { layer ->
-                                layer.visibility( if(layer.visibility == Visibility.NONE) Visibility.VISIBLE else Visibility.NONE)
+                                layer.visibility(if (layer.visibility == Visibility.NONE) Visibility.VISIBLE else Visibility.NONE)
                             }
                         }
+                    }
+                    R.id.keepScreenOn -> {
+                        screenAlwaysOn = !screenAlwaysOn
+                        if (screenAlwaysOn)
+                            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        else
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    }
+                    R.id.saveTrackGpx -> {
+                        Log.i(TAG, "TODO: saveTrackGpx()")
                     }
                 }
                 true
@@ -540,7 +525,7 @@ class MainMapActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val uri: Uri? = result.data?.data
-                Log.i("App", "loading '${uri?.path}'...")
+                Log.i(TAG, "loading '${uri?.path}'...")
                 if (uri != null) {
                     // from https://developer.android.com/training/data-storage/shared/documents-files#kotlin
                     contentResolver.openInputStream(uri)?.use { inputStream ->
@@ -611,7 +596,7 @@ class MainMapActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val uri: Uri? = result.data?.data
-                Log.i("App", "saving '${uri?.path}'...")
+                Log.i(TAG, "saving '${uri?.path}'...")
                 if (uri != null) {
                     try {
                         contentResolver.openFileDescriptor(uri, "w")?.use {
@@ -645,7 +630,9 @@ class MainMapActivity : AppCompatActivity() {
                 }
             }
         }
+
     companion object {
-        val PREF_NAME = "onb"
+        const val TAG: String = "Cyclemap"
+        const val TRACK_RECORDING_INTERVAL: Long = 1000
     }
 }

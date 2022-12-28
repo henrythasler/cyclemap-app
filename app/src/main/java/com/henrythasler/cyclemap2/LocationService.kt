@@ -13,16 +13,33 @@ import android.location.Location
 import android.os.Binder
 import android.os.IBinder
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.*
 import com.mapbox.geojson.Point
 
+// https://developer.android.com/guide/components/bound-services.html
 class LocationService : Service() {
     /** Binder given to clients */
     private val binder = LocalBinder()
 
-    private var counter = 0
+    private var fusedLocationClient: FusedLocationProviderClient? = null
+
+    private var locationCallback: LocationCallback = object : LocationCallback() {
+        override fun onLocationResult(locationResult: LocationResult) {
+            val location: Location? = locationResult.lastLocation
+            if (location != null) {
+                trackPoints.add(
+                    Point.fromLngLat(
+                        location.longitude,
+                        location.latitude,
+                        location.altitude
+                    )
+                )
+//                        Log.d(TAG, "location update $location")
+//                        Log.d(TAG, "trackPoints.size=${trackPoints.size}")
+            }
+        }
+    }
 
     /** methods and properties for clients  */
     var trackPoints: MutableList<Point> = mutableListOf()
@@ -36,74 +53,79 @@ class LocationService : Service() {
         fun getService(): LocationService = this@LocationService
     }
 
+    override fun onBind(intent: Intent): IBinder {
+        Log.i(TAG, "onBind()")
+        return binder
+    }
+
     override fun onCreate() {
         super.onCreate()
-        createNotificationChanel()
+        Log.i(TAG, "onCreate()")
+        createNotificationChannel()
         requestLocationUpdates()
-    }
-
-    override fun onDestroy() {
-        Log.i("Service", "service onDestroy")
-        super.onDestroy()
-    }
-
-    private fun createNotificationChanel() {
-        val NOTIFICATION_CHANNEL_ID = "com.getlocationbackground"
-        val channelName = "Background Service"
-        val chan = NotificationChannel(
-            NOTIFICATION_CHANNEL_ID,
-            channelName,
-            NotificationManager.IMPORTANCE_NONE
-        )
-        chan.lightColor = Color.BLUE
-        chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
-        val manager =
-            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-        manager.createNotificationChannel(chan)
-        val notificationBuilder =
-            NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-        val notification: Notification = notificationBuilder.setOngoing(true)
-            .setContentTitle("App is running count::" + counter)
-            .setPriority(NotificationManager.IMPORTANCE_MIN)
-            .setCategory(Notification.CATEGORY_SERVICE)
-            .build()
-        startForeground(2, notification)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        Log.i("Service", "service onStartCommand")
+        Log.i(TAG, "onStartCommand()")
         return START_STICKY
     }
 
-    override fun onBind(intent: Intent): IBinder {
-        return binder
+    override fun onDestroy() {
+        Log.i(TAG, "onDestroy()")
+        fusedLocationClient?.removeLocationUpdates(locationCallback)
+        super.onDestroy()
+    }
+
+    private fun createNotificationChannel() {
+        // https://developer.android.com/develop/ui/views/notifications/channels
+        val chan = NotificationChannel(
+            NOTIFICATION_CHANNEL_ID,
+            "Location Service",
+            NotificationManager.IMPORTANCE_LOW
+        )
+        chan.description = "Provides location while the App is in the background"
+        chan.lightColor = Color.BLUE
+        chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+
+        val notificationManager =
+            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+        notificationManager.createNotificationChannel(chan)
+
+        // https://developer.android.com/guide/components/foreground-services#start
+        val notificationBuilder = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
+        val notification: Notification = notificationBuilder.setOngoing(true)
+            .setContentTitle("Cyclemap")
+            .setContentText("Track recording active")
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .build()
+        startForeground(ONGOING_NOTIFICATION_ID, notification)
     }
 
     private fun requestLocationUpdates() {
-        val request = LocationRequest()
-        request.setInterval(10000)
-        request.setFastestInterval(5000)
-        request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-        val client: FusedLocationProviderClient =
-            LocationServices.getFusedLocationProviderClient(this)
+        val request =
+            LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, LOCATION_UPDATE_INTERVAL)
+                .setMinUpdateDistanceMeters(MIN_UPDATE_DISTANCE_METERS)
+                .build()
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         val permission = ContextCompat.checkSelfPermission(
             this,
             Manifest.permission.ACCESS_FINE_LOCATION
         )
-        if (permission == PackageManager.PERMISSION_GRANTED) { // Request location updates and when an update is
-            // received, store the location in Firebase
-            client.requestLocationUpdates(request, object : LocationCallback() {
-                override fun onLocationResult(locationResult: LocationResult) {
-                    val location: Location? = locationResult.lastLocation
-                    if (location != null) {
-                        trackPoints.add(Point.fromLngLat(location.longitude , location.latitude, location.altitude))
-                        Log.d("Service", "location update $location")
-                        Log.d("Service", "trackPoints.size=${trackPoints.size}")
-                    }
-                }
-            }, null)
+        if (permission == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient?.requestLocationUpdates(request, locationCallback, null)
         }
+        else {
+            Log.e(TAG, "Permission for ACCESS_FINE_LOCATION not granted.")
+        }
+    }
+
+    companion object {
+        const val TAG = "LocationService"
+        const val LOCATION_UPDATE_INTERVAL: Long = 1000
+        const val MIN_UPDATE_DISTANCE_METERS: Float = 5.0F
+        const val NOTIFICATION_CHANNEL_ID = TAG
+        const val ONGOING_NOTIFICATION_ID = 2
     }
 }
