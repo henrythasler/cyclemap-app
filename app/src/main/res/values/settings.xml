@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <integer name="DESIRED_AMBIENT_CACHE_SIZE">500000000</integer>
-    <string name="DEFAULT_LOCATION_LNG">10.85</string>
-    <string name="DEFAULT_LOCATION_LAT">48.05</string>
-    <string name="DEFAULT_ZOOM">12</string>
+    <string name="DEFAULT_LONGITUDE">10.85</string>
+    <string name="DEFAULT_LATITUDE">48.05</string>
+    <string name="DEFAULT_ZOOM">12.0</string>
+    <string name="CYCLEMAP_STYLE_URL">https://www.cyclemap.link/cyclemap-style.json</string>
+    <string name="SHADOW_STYLE_URL">https://www.cyclemap.link/shadow-style.json</string>
+    <string name="XRAY_STYLE_URL">https://www.cyclemap.link/xray-style.json</string>
+    <string name="STATE_LATITUDE">latitude</string>
+    <string name="STATE_LONGITUDE">longitude</string>
+    <string name="STATE_ZOOM">zoom</string>
 </resources>

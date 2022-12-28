@@ -1,33 +1,19 @@
 <resources>
-    <string name="app_name">Cyclemap</string>
-    <string name="mapbox_access_token">pk.eyJ1IjoibXljeWNsZW1hcCIsImEiOiJjaXJhYnoxcGEwMDRxaTlubnk3cGZpbTBmIn0.TEO9UhyyX1nFKDTwO4K1xg</string>
-    <string name="nav_header_desc">Navigation Header</string>
-    <string name="nav_header_title">Cyclemap</string>
-    <string name="nav_header_subtitle">by Henry Thasler</string>
+    <string name="app_name">Cyclemap2</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="nav_header_title">Android Studio</string>
+    <string name="nav_header_subtitle">android.studio@android.com</string>
+    <string name="nav_header_desc">Navigation header</string>
+    <string name="action_settings">Settings</string>
 
-    <string name="menu_global_search">Search...</string>
-    <string name="menu_share_position">Share Map Position</string>
-    <string name="menu_my_places">My Places...</string>
-    <string name="menu_cache_manager">Cache</string>
-    <string name="menu_cache_ambient_invalidate">invalidateAmbientCache()</string>
-    <string name="menu_cache_ambient_clear">clearAmbientCache()</string>
-    <string name="tracking_enabled">Location tracking enabled</string>
-    <string name="tracking_already_enabled">Location tracking still active</string>
-    <string name="current_location">lat=%.2f, lng=%.2f</string>
-    <string name="empty_result">No Results found</string>
-    <string name="reverse_geocoding_result">Type=%s\nName=%s\nAddress=%s</string>
-    <string name="menu_show_hillshading">Hillshading</string>
+    <string name="menu_home">Home</string>
+    <string name="menu_gallery">Gallery</string>
+    <string name="menu_slideshow">Slideshow</string>
+    <string name="mapbox_access_token">pk.eyJ1IjoibXljeWNsZW1hcCIsImEiOiJjaXJhYnoxcGEwMDRxaTlubnk3cGZpbTBmIn0.TEO9UhyyX1nFKDTwO4K1xg</string>
+    <string name="location">enable location</string>
     <string name="mapCrosshairDescription">crosshair</string>
-    <string name="saved_latitude">latitude</string>
-    <string name="saved_longitude">longitude</string>
-    <string name="saved_zoom">zoom</string>
-    <string name="menu_track_management">Track</string>
-    <string name="menu_track_record">start recording</string>
-    <string name="recordTrackDescription">recordTrack</string>
-    <string name="menu_track_clear">Clear track</string>
-    <string name="toastTrackLoggingPaused">Track logging paused</string>
-    <string name="trackLoggingActive">Track logging active</string>
-    <string name="menu_route_management">Route</string>
-    <string name="menu_route_load">Load GPX</string>
-    <string name="menu_route_clear">Clear route</string>
+    <string name="menu_hillshading">toggle hillshading</string>
+    <string name="menu_shareposition">Share Map Position</string>
+    <string name="screen_always_on">screen always-on</string>
 </resources>

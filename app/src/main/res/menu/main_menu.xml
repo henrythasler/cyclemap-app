@@ -1,68 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <group android:checkableBehavior="single">
-        <item
-            android:id="@+id/menu_show_hillshading"
-            android:checkable="true"
-            android:checked="true"
-            android:icon="@android:drawable/ic_menu_gallery"
-            android:title="@string/menu_show_hillshading" />
-        <item
-            android:id="@+id/menu_share_position"
-            android:icon="@android:drawable/ic_menu_share"
-            android:title="@string/menu_share_position" />
-        <item
-            android:id="@+id/menu_global_search"
-            android:icon="@android:drawable/ic_menu_search"
-            android:title="@string/menu_global_search" />
-        <item
-            android:id="@+id/menu_my_places"
-            android:icon="@android:drawable/ic_menu_myplaces"
-            android:title="@string/menu_my_places" />
-        <item
-            android:id="@+id/menu_route_management"
-            android:icon="@android:drawable/ic_menu_manage"
-            android:title="@string/menu_route_management" >
-            <menu>
-                <item
-                    android:id="@+id/menu_route_load"
-                    android:icon="@drawable/ic_baseline_directions_24"
-                    android:title="@string/menu_route_load" />
-                <item
-                    android:id="@+id/menu_route_clear"
-                    android:icon="@android:drawable/ic_menu_delete"
-                    android:title="@string/menu_route_clear" />
-            </menu>
-        </item>
-        <item
-            android:id="@+id/menu_track_management"
-            android:icon="@android:drawable/ic_menu_manage"
-            android:title="@string/menu_track_management" >
-            <menu>
-                <item
-                    android:id="@+id/menu_track_record"
-                    android:icon="@drawable/circle_red"
-                    android:title="@string/menu_track_record" />
-                <item
-                    android:id="@+id/menu_track_clear"
-                    android:icon="@android:drawable/ic_menu_delete"
-                    android:title="@string/menu_track_clear" />
-            </menu>
-        </item>
-        <item
-            android:id="@+id/menu_cache_manager"
-            android:icon="@android:drawable/ic_menu_manage"
-            android:title="@string/menu_cache_manager">
-            <menu>
-                <item
-                    android:id="@+id/menu_cache_ambient_invalidate"
-                    android:icon="@android:drawable/ic_menu_close_clear_cancel"
-                    android:title="@string/menu_cache_ambient_invalidate" />
-                <item
-                    android:id="@+id/menu_cache_ambient_clear"
-                    android:icon="@android:drawable/ic_menu_delete"
-                    android:title="@string/menu_cache_ambient_clear" />
-            </menu>
-        </item>
-    </group>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:title="Route">
+        <menu>
+            <item
+                android:id="@+id/route_load_gpx"
+                android:icon="@drawable/ic_outline_directions_24"
+                android:title="Load GPX..." />
+            <item
+                android:id="@+id/route_clear"
+                android:icon="@drawable/ic_outline_directions_off_24"
+                android:title="Clear Route" />
+        </menu>
+    </item>
+    <item android:title="Track">
+        <menu>
+            <item
+                android:id="@+id/saveTrackGpx"
+                android:title="Save Track as GPX..." />
+        </menu>
+    </item>
+    <item android:title="Style">
+        <menu>
+            <item
+                android:id="@+id/style_cyclemap"
+                android:title="Cyclemap" />
+            <item
+                android:id="@+id/style_shadow"
+                android:title="Shadow" />
+            <item
+                android:id="@+id/style_xray"
+                android:title="X-Ray" />
+        </menu>
+    </item>
+    <item android:title="Advanced" >
+        <menu >
+            <item
+                android:id="@+id/hillshading"
+                android:title="@string/menu_hillshading"/>
+            <item
+                android:id="@+id/keepScreenOn"
+                android:title="@string/screen_always_on" />
+        </menu>
+    </item>
 </menu>
