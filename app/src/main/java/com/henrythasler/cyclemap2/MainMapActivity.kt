@@ -2,15 +2,20 @@ package com.henrythasler.cyclemap2
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.net.Uri
 import android.os.Bundle
+import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
 import android.view.View
 import android.widget.ImageButton
 import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.mapbox.android.gestures.MoveGestureDetector
@@ -50,7 +55,13 @@ class MainMapActivity : AppCompatActivity() {
     private lateinit var locationPermissionHelper: LocationPermissionHelper
     private lateinit var map: MapboxMap
     private lateinit var mapView: MapView
+
     private var followLocation: Boolean = false
+    private var lastLocationUpdateTimestamp: Long = 0
+
+    private lateinit var mLocationService: LocationService
+    private var mBound: Boolean = false
+    lateinit var mServiceIntent: Intent
 
     private var distanceMeasurement: Boolean = false
     private var lastClickedTimestamp: Long = 0
@@ -59,7 +70,6 @@ class MainMapActivity : AppCompatActivity() {
     private var routePoints: MutableList<Point> = mutableListOf()
 
     private var trackRecording: Boolean = false
-    private var trackPoints: MutableList<Point> = mutableListOf()
     private var lastRecordUpdateTimestamp: Long = 0
 
     private val moveListener: OnMoveListener = object : OnMoveListener {
@@ -88,14 +98,37 @@ class MainMapActivity : AppCompatActivity() {
 
     private val onIndicatorPositionChangedListener = OnIndicatorPositionChangedListener {
         if (followLocation)
-            mapView.getMapboxMap().setCamera(CameraOptions.Builder().center(it).build())
+            if (SystemClock.elapsedRealtime() - lastLocationUpdateTimestamp > 50) {
+                mapView.getMapboxMap().setCamera(CameraOptions.Builder().center(it).build())
+                lastLocationUpdateTimestamp = SystemClock.elapsedRealtime()
+            }
 
         if(trackRecording) {
-            if (SystemClock.elapsedRealtime() - lastRecordUpdateTimestamp > 1000) {
-                trackPoints.add(it)
+            if ((SystemClock.elapsedRealtime() - lastRecordUpdateTimestamp > 1000) && mBound) {
+//                locationService.trackPoints.add(it)
+                Log.d("App", "locationService.trackPoints.count=${mLocationService.trackPoints.count()}")
+                if(mLocationService.trackPoints.size > 2) {
+                    Log.d("App", "trackPoints.last=${mLocationService.trackPoints.last()}")
+                }
                 updateTrack()
                 lastRecordUpdateTimestamp = SystemClock.elapsedRealtime()
             }
+        }
+    }
+
+    /** Defines callbacks for service binding, passed to bindService()  */
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(className: ComponentName, service: IBinder) {
+            // We've bound to LocalService, cast the IBinder and get LocalService instance
+            val binder = service as LocationService.LocalBinder
+            mLocationService = binder.getService()
+            mBound = true
+            Log.i("App", "onServiceConnected")
+        }
+
+        override fun onServiceDisconnected(arg0: ComponentName) {
+            mBound = false
+            Log.i("App", "onServiceDisconnected")
         }
     }
 
@@ -134,13 +167,50 @@ class MainMapActivity : AppCompatActivity() {
         findViewById<View?>(R.id.saveAsRoute).setOnClickListener { saveGPXDocument() }
         findViewById<ImageButton>(R.id.recordTrack).setOnClickListener { onRecordTrackButton() }
 
+        mServiceIntent = Intent(this, LocationService::class.java).also { intent ->
+            bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        }
+
 //        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-//        startService(Intent(this, MapService::class.java))
+
+//        if (!Util.isMyServiceRunning(mLocationService.javaClass, this@MainMapActivity)) {
+//            startService(mServiceIntent)
+//            Toast.makeText(
+//                this,
+//                "service_start_successfully",
+//                Toast.LENGTH_SHORT
+//            ).show()
+//        } else {
+//            Toast.makeText(
+//                this,
+//                "service_already_running",
+//                Toast.LENGTH_SHORT
+//            ).show()
+//        }
 
         // catch map events
         mapView.gestures.addOnMoveListener(moveListener)
         map.addOnCameraChangeListener(cameraChangeListener)
         mapView.location2.addOnIndicatorPositionChangedListener(onIndicatorPositionChangedListener)
+    }
+
+//    override fun onStart() {
+//        super.onStart()
+//    }
+//
+//    override fun onStop() {
+//        super.onStop()
+//
+//    }
+
+    override fun onDestroy() {
+        unbindService(connection)
+        mBound = false
+//        if (::mServiceIntent.isInitialized) {
+//            Log.i("App", "stopping service")
+//            stopService(mServiceIntent)
+//        }
+        super.onDestroy()
     }
 
     private fun onStyleLoaded(style: Style) {
@@ -195,12 +265,14 @@ class MainMapActivity : AppCompatActivity() {
         })
 
         style.addSource(geoJsonSource("TRACK_SOURCE") {
-            if (trackPoints.size > 0) {
-                feature(
-                    Feature.fromGeometry(
-                        LineString.fromLngLats(trackPoints)
+            if (mBound) {
+                if (mLocationService.trackPoints.size > 0) {
+                    feature(
+                        Feature.fromGeometry(
+                            LineString.fromLngLats(mLocationService.trackPoints)
+                        )
                     )
-                )
+                }
             }
         })
         style.addLayer(lineLayer("TRACK", "TRACK_SOURCE") {
@@ -292,15 +364,17 @@ class MainMapActivity : AppCompatActivity() {
 
     private fun onRecordTrackButton() {
         trackRecording = !trackRecording
-        trackPoints.clear()
-        if(!trackRecording) {
-            trackPoints.add(map.cameraState.center)
-            trackPoints.add(map.cameraState.center)
-            map.getStyle()?.getSourceAs<GeoJsonSource>("TRACK_SOURCE")?.feature(
-                Feature.fromGeometry(
-                    LineString.fromLngLats(trackPoints)
+        if(mBound) {
+            mLocationService.trackPoints.clear()
+            if (!trackRecording) {
+                mLocationService.trackPoints.add(map.cameraState.center)
+                mLocationService.trackPoints.add(map.cameraState.center)
+                map.getStyle()?.getSourceAs<GeoJsonSource>("TRACK_SOURCE")?.feature(
+                    Feature.fromGeometry(
+                        LineString.fromLngLats(mLocationService.trackPoints)
+                    )
                 )
-            )
+            }
         }
 
         map.getStyle { style ->
@@ -309,12 +383,12 @@ class MainMapActivity : AppCompatActivity() {
     }
 
     private fun updateTrack() {
-        if (trackPoints.size >= 2) {
+        if (mLocationService.trackPoints.size >= 2) {
             val drawLineSource =
                 map.getStyle()?.getSourceAs<GeoJsonSource>("TRACK_SOURCE")
             drawLineSource?.feature(
                 Feature.fromGeometry(
-                    LineString.fromLngLats(trackPoints)
+                    LineString.fromLngLats(mLocationService.trackPoints)
                 )
             )
         }
@@ -571,4 +645,7 @@ class MainMapActivity : AppCompatActivity() {
                 }
             }
         }
+    companion object {
+        val PREF_NAME = "onb"
+    }
 }
