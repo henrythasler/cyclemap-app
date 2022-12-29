@@ -39,6 +39,7 @@ import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location2
 import com.mapbox.turf.TurfConstants.UNIT_METERS
 import com.mapbox.turf.TurfMeasurement
+import com.mapbox.turf.TurfTransformation
 import io.jenetics.jpx.GPX
 import io.jenetics.jpx.WayPoint
 import java.io.FileNotFoundException
@@ -55,7 +56,6 @@ class MainMapActivity : AppCompatActivity() {
     private lateinit var mapView: MapView
 
     private var followLocation: Boolean = false
-    private var lastLocationUpdateTimestamp: Long = 0
 
     /** setup and interface for the location service to provide location updates when the
      * app is minimized */
@@ -73,10 +73,11 @@ class MainMapActivity : AppCompatActivity() {
     private val trackRecordingTimerHandler = Handler(Looper.getMainLooper())
 
     private var screenAlwaysOn: Boolean = false
+    private var gpxWriterSource: String? = null
 
     private val moveListener: OnMoveListener = object : OnMoveListener {
         override fun onMoveBegin(detector: MoveGestureDetector) {
-            Log.d(TAG, "tracking disabled")
+            if(followLocation) Log.d(TAG, "tracking disabled")
             followLocation = false
         }
 
@@ -170,7 +171,7 @@ class MainMapActivity : AppCompatActivity() {
             true
         }
 
-        findViewById<View?>(R.id.saveAsRoute).setOnClickListener { saveGPXDocument() }
+        findViewById<View?>(R.id.saveAsRoute).setOnClickListener { saveGPXDocument("route.gpx", "GXP_SOURCE_ROUTE") }
         findViewById<ImageButton>(R.id.recordTrack).setOnClickListener { onRecordTrackButton() }
 
         // catch map events
@@ -373,6 +374,10 @@ class MainMapActivity : AppCompatActivity() {
         } else {
             disableLocationService()
         }
+
+        map.getStyle { style ->
+            style.getLayer("TRACK")?.visibility(Visibility.VISIBLE)
+        }
     }
 
     private fun disableLocationService() {
@@ -388,7 +393,16 @@ class MainMapActivity : AppCompatActivity() {
         if (locationService.trackPoints.size >= 2) {
             /** create an immutable copy to avoid GeoJson-parser crashes.
              * see https://www.baeldung.com/kotlin/mutable-collection-to-immutable */
-            trackPoints = locationService.trackPoints.toList()
+            val tempList: MutableList<Point> = mutableListOf()
+            locationService.trackPoints.forEach { location ->
+                tempList.add(
+                    Point.fromLngLat(
+                        location.longitude,
+                        location.latitude,
+                    )
+                )
+            }
+            trackPoints = tempList.toList()
 
             /** update track layer with the latest track data*/
             map.getStyle()?.getSourceAs<GeoJsonSource>("TRACK_SOURCE")?.feature(
@@ -503,7 +517,13 @@ class MainMapActivity : AppCompatActivity() {
                             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     }
                     R.id.saveTrackGpx -> {
-                        Log.i(TAG, "TODO: saveTrackGpx()")
+                        saveGPXDocument("track.gpx", "GXP_SOURCE_TRACK")
+                    }
+                    R.id.clearTrack -> {
+                        map.getStyle { style ->
+                            style.getLayer("TRACK")?.visibility(Visibility.NONE)
+                        }
+                        trackPoints = listOf()
                     }
                 }
                 true
@@ -583,11 +603,14 @@ class MainMapActivity : AppCompatActivity() {
             }
         }
 
-    private fun saveGPXDocument() {
+    private fun saveGPXDocument(defaultFilename: String, sourceType: String) {
+        // https://developer.android.com/training/data-storage/shared/documents-files#create-file
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
-            putExtra(Intent.EXTRA_TITLE, "route.gpx")
+            putExtra(Intent.EXTRA_TITLE, defaultFilename)
+//            putExtra(Intent.EXTRA_TEXT, "sourceType") // FIXME: Find a way how this works
+            gpxWriterSource = sourceType
         }
         saveGPXLauncher.launch(intent)
     }
@@ -596,22 +619,61 @@ class MainMapActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val uri: Uri? = result.data?.data
+
+                // FIXME: Find a way how this works
+//                val sourceType = result.data?.getStringExtra(Intent.EXTRA_TITLE)
+                Log.i(TAG, "SOURCE_TYPE=${gpxWriterSource}");
+
                 Log.i(TAG, "saving '${uri?.path}'...")
                 if (uri != null) {
                     try {
                         contentResolver.openFileDescriptor(uri, "w")?.use {
                             FileOutputStream(it.fileDescriptor).use { outputStream ->
+
                                 val track = GPX.builder().addTrack { track ->
-                                    distanceMeasurementPoints.forEach { point ->
-                                        track.addSegment { segment ->
-                                            segment.addPoint(
-                                                WayPoint.of(
-                                                    point.latitude(),
-                                                    point.longitude()
-                                                )
-                                            )
+                                    track.addSegment { segment ->
+                                        when(gpxWriterSource) {
+                                            "GXP_SOURCE_ROUTE" -> {
+                                                distanceMeasurementPoints.forEach {  point ->
+                                                    segment.addPoint(
+                                                        WayPoint.of(
+                                                            point.latitude(),
+                                                            point.longitude(),
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                            "GXP_SOURCE_TRACK" -> {
+                                                locationService.trackPoints.forEach {  point ->
+                                                    segment.addPoint(
+                                                        WayPoint.of(
+                                                            point.latitude,
+                                                            point.longitude,
+                                                            point.altitude,
+                                                            point.time
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                            "GPX_SIMPLIFIED_TRACK" -> {
+                                                val gpxData: MutableList<Point> = mutableListOf()
+                                                locationService.trackPoints.forEach { location ->
+                                                    gpxData.add(
+                                                        Point.fromLngLat(
+                                                            location.longitude,
+                                                            location.latitude,
+                                                        )
+                                                    )
+                                                }
+                                                // tolerance is in degrees.
+                                                val simplifiedData = TurfTransformation.simplify(gpxData, TRACK_SIMPLIFY_TOLERANCE)
+                                                Log.i(TAG, "original: ${gpxData.size}  simplified: ${simplifiedData.size}")
+
+                                                Log.i(TAG, "TODO: write GPX_SIMPLIFIED_TRACK")
+                                            }
                                         }
                                     }
+                                    gpxWriterSource = null
                                 }.build()
                                 GPX.write(track, outputStream)
                             }
@@ -634,5 +696,6 @@ class MainMapActivity : AppCompatActivity() {
     companion object {
         const val TAG: String = "Cyclemap"
         const val TRACK_RECORDING_INTERVAL: Long = 1000
+        const val TRACK_SIMPLIFY_TOLERANCE: Double = 0.00005
     }
 }

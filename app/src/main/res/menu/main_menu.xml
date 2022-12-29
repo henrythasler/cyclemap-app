@@ -18,6 +18,9 @@
             <item
                 android:id="@+id/saveTrackGpx"
                 android:title="Save Track as GPX..." />
+            <item
+                android:id="@+id/clearTrack"
+                android:title="Clear Track" />
         </menu>
     </item>
     <item android:title="Style">

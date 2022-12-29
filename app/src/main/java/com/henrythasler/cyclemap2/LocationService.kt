@@ -22,27 +22,18 @@ class LocationService : Service() {
     /** Binder given to clients */
     private val binder = LocalBinder()
 
+    /** methods and properties for clients  */
+    var trackPoints: MutableList<Location> = mutableListOf()
+
     private var fusedLocationClient: FusedLocationProviderClient? = null
 
     private var locationCallback: LocationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
-            val location: Location? = locationResult.lastLocation
-            if (location != null) {
-                trackPoints.add(
-                    Point.fromLngLat(
-                        location.longitude,
-                        location.latitude,
-                        location.altitude
-                    )
-                )
-//                        Log.d(TAG, "location update $location")
-//                        Log.d(TAG, "trackPoints.size=${trackPoints.size}")
+            if (locationResult.lastLocation != null) {
+                trackPoints.add(locationResult.lastLocation!!)
             }
         }
     }
-
-    /** methods and properties for clients  */
-    var trackPoints: MutableList<Point> = mutableListOf()
 
     /**
      * Class used for the client Binder.  Because we know this service always
