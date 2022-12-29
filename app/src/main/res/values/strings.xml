@@ -16,4 +16,8 @@
     <string name="menu_hillshading">toggle hillshading</string>
     <string name="menu_shareposition">Share Map Position</string>
     <string name="screen_always_on">screen always-on</string>
+
+    <string name="track_statistics">%1$s\n%2$s</string>
+    <string name="track_statistics_detail"><b>Distance</b> %1$s\n<b>Duration</b> %2$s\n<b>Avg Speed</b> %3$s km/h</string>
+
 </resources>

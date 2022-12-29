@@ -15,7 +15,6 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.*
-import com.mapbox.geojson.Point
 
 // https://developer.android.com/guide/components/bound-services.html
 class LocationService : Service() {
@@ -23,14 +22,14 @@ class LocationService : Service() {
     private val binder = LocalBinder()
 
     /** methods and properties for clients  */
-    var trackPoints: MutableList<Location> = mutableListOf()
+    var locations: MutableList<Location> = mutableListOf()
 
     private var fusedLocationClient: FusedLocationProviderClient? = null
 
     private var locationCallback: LocationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
             if (locationResult.lastLocation != null) {
-                trackPoints.add(locationResult.lastLocation!!)
+                locations.add(locationResult.lastLocation!!)
             }
         }
     }

@@ -6,8 +6,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.location.Location
 import android.net.Uri
 import android.os.*
+import android.text.format.DateUtils
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
@@ -22,6 +24,7 @@ import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.maps.*
 import com.mapbox.maps.extension.style.layers.addLayer
+import com.mapbox.maps.extension.style.layers.addLayerBelow
 import com.mapbox.maps.extension.style.layers.generated.lineLayer
 import com.mapbox.maps.extension.style.layers.getLayer
 import com.mapbox.maps.extension.style.layers.properties.generated.LineCap
@@ -48,6 +51,9 @@ import java.io.IOException
 import java.lang.Integer.max
 import java.lang.ref.WeakReference
 import java.text.DecimalFormat
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.DurationUnit
 
 
 class MainMapActivity : AppCompatActivity() {
@@ -70,6 +76,7 @@ class MainMapActivity : AppCompatActivity() {
 
     private var trackRecording: Boolean = false
     private var trackPoints: List<Point> = listOf()
+    private var trackLocations: List<Location> = listOf()
     private val trackRecordingTimerHandler = Handler(Looper.getMainLooper())
 
     private var screenAlwaysOn: Boolean = false
@@ -77,7 +84,7 @@ class MainMapActivity : AppCompatActivity() {
 
     private val moveListener: OnMoveListener = object : OnMoveListener {
         override fun onMoveBegin(detector: MoveGestureDetector) {
-            if(followLocation) Log.d(TAG, "tracking disabled")
+            if (followLocation) Log.d(TAG, "tracking disabled")
             followLocation = false
         }
 
@@ -99,7 +106,10 @@ class MainMapActivity : AppCompatActivity() {
     private val trackTimerRunnable: Runnable = object : Runnable {
         override fun run() {
             if (trackRecording && locationServiceBound) {
-                updateTrack()
+                trackLocations = locationService.locations.toList()
+                updateTrack(trackLocations)
+                updateTrackStatistics(trackLocations, findViewById(R.id.trackDetails))
+                findViewById<TextView>(R.id.trackDetails).visibility = View.VISIBLE
                 trackRecordingTimerHandler.postDelayed(this, TRACK_RECORDING_INTERVAL)
             }
         }
@@ -171,8 +181,15 @@ class MainMapActivity : AppCompatActivity() {
             true
         }
 
-        findViewById<View?>(R.id.saveAsRoute).setOnClickListener { saveGPXDocument("route.gpx", "GXP_SOURCE_ROUTE") }
+        findViewById<View?>(R.id.saveAsRoute).setOnClickListener {
+            saveGPXDocument(
+                "route.gpx",
+                "GXP_SOURCE_ROUTE"
+            )
+        }
         findViewById<ImageButton>(R.id.recordTrack).setOnClickListener { onRecordTrackButton() }
+
+        findViewById<TextView>(R.id.trackDetails).setOnClickListener { onTrackDetailsClick(trackLocations) }
 
         // catch map events
         mapView.gestures.addOnMoveListener(moveListener)
@@ -215,7 +232,7 @@ class MainMapActivity : AppCompatActivity() {
         })
 
         style.addSource(geoJsonSource("ROUTE_SOURCE") {
-            if (routePoints.size > 0) {
+            if (routePoints.isNotEmpty()) {
                 feature(
                     Feature.fromGeometry(
                         LineString.fromLngLats(routePoints)
@@ -240,14 +257,33 @@ class MainMapActivity : AppCompatActivity() {
                 )
             }
         })
-        style.addLayer(lineLayer("TRACK", "TRACK_SOURCE") {
-            lineCap(LineCap.ROUND)
-            lineJoin(LineJoin.ROUND)
-            lineOpacity(0.75)
-            lineWidth(9.0)
-            lineColor(getColor(R.color.colorTrack))
-        })
 
+        if(trackPoints.isNotEmpty())
+            addTrackLayer(style)
+    }
+
+    private fun addTrackLayer(style: Style) {
+        if(!style.styleLayerExists("TRACK")) {
+            if(style.styleLayerExists("mapbox-location-indicator-layer")) {
+                style.addLayerBelow(lineLayer("TRACK", "TRACK_SOURCE") {
+                    lineCap(LineCap.ROUND)
+                    lineJoin(LineJoin.ROUND)
+                    lineOpacity(0.75)
+                    lineWidth(9.0)
+                    lineColor(getColor(R.color.colorTrack))
+                }, "mapbox-location-indicator-layer")
+            }
+            else {
+                Log.i(TAG, "Layer 'mapbox-location-indicator-layer' not found.")
+                style.addLayer(lineLayer("TRACK", "TRACK_SOURCE") {
+                    lineCap(LineCap.ROUND)
+                    lineJoin(LineJoin.ROUND)
+                    lineOpacity(0.75)
+                    lineWidth(9.0)
+                    lineColor(getColor(R.color.colorTrack))
+                })
+            }
+        }
     }
 
     private fun onCrosshairClick(view: View?) {
@@ -376,25 +412,26 @@ class MainMapActivity : AppCompatActivity() {
         }
 
         map.getStyle { style ->
-            style.getLayer("TRACK")?.visibility(Visibility.VISIBLE)
+            addTrackLayer(style)
         }
+        findViewById<TextView>(R.id.trackDetails).visibility = View.VISIBLE
     }
 
     private fun disableLocationService() {
         /** stop the service when track recording is stopped */
-        if(locationServiceBound) {
+        if (locationServiceBound) {
             unbindService(locationServiceConnection)
             locationServiceBound = false
             trackRecording = false
         }
     }
 
-    private fun updateTrack() {
-        if (locationService.trackPoints.size >= 2) {
+    private fun updateTrack(track: List<Location>) {
+        if (track.size >= 2) {
             /** create an immutable copy to avoid GeoJson-parser crashes.
              * see https://www.baeldung.com/kotlin/mutable-collection-to-immutable */
             val tempList: MutableList<Point> = mutableListOf()
-            locationService.trackPoints.forEach { location ->
+            track.forEach { location ->
                 tempList.add(
                     Point.fromLngLat(
                         location.longitude,
@@ -520,10 +557,14 @@ class MainMapActivity : AppCompatActivity() {
                         saveGPXDocument("track.gpx", "GXP_SOURCE_TRACK")
                     }
                     R.id.clearTrack -> {
+                        trackRecording = false
                         map.getStyle { style ->
-                            style.getLayer("TRACK")?.visibility(Visibility.NONE)
+                            if(style.styleLayerExists("TRACK")) {
+                                style.removeStyleLayer("TRACK")
+                            }
                         }
-                        trackPoints = listOf()
+                        disableLocationService()
+                        findViewById<TextView>(R.id.trackDetails).visibility = View.GONE
                     }
                 }
                 true
@@ -584,24 +625,79 @@ class MainMapActivity : AppCompatActivity() {
                                     )
                                 )
                             }
-                            val distance = TurfMeasurement.length(geometry, UNIT_METERS)
-                            val routeDetails: TextView = findViewById(R.id.routeDetails)
 
-                            if (distance > 5000) {
-                                routeDetails.text = "${routePoints.size} Wpts\n${
-                                    DecimalFormat("#.0 km").format(distance / 1000)
-                                }"
-                            } else {
-                                routeDetails.text = "${routePoints.size} Wpts\n${
-                                    DecimalFormat("# m").format(distance)
-                                }"
-                            }
+                            val routeDetails: TextView = findViewById(R.id.routeDetails)
+                            updateRouteStatistics(geometry, routeDetails)
                             routeDetails.visibility = View.VISIBLE
                         }
                     }
                 }
             }
         }
+
+    private fun updateRouteStatistics(geometry: LineString, view: TextView) {
+        val distance = TurfMeasurement.length(geometry, UNIT_METERS)
+        val formattedDistance = getFormattedDistance(distance)
+        view.text = "${routePoints.size} Wpts\n$formattedDistance"
+    }
+
+    private fun updateTrackStatistics(track: List<Location>, view: TextView) {
+        if(track.size >= 2) {
+            val points: MutableList<Point> = mutableListOf()
+            track.forEach { location ->
+                points.add(
+                    Point.fromLngLat(
+                        location.longitude,
+                        location.latitude,
+                    )
+                )
+            }
+
+            val geometry = LineString.fromLngLats(points)
+            val distance = TurfMeasurement.length(geometry, UNIT_METERS)
+            val tripDuration: Duration = (track.last().time - track.first().time).milliseconds
+            view.text = getString(
+                R.string.track_statistics,
+                getFormattedDistance(distance),
+                DateUtils.formatElapsedTime(tripDuration.inWholeSeconds)
+            )
+        }
+    }
+
+    private fun onTrackDetailsClick(track: List<Location>) {
+        val points: MutableList<Point> = mutableListOf()
+        track.forEach { location ->
+            points.add(
+                Point.fromLngLat(
+                    location.longitude,
+                    location.latitude,
+                )
+            )
+        }
+        val geometry = LineString.fromLngLats(points)
+        val distance = TurfMeasurement.length(geometry, UNIT_METERS)
+        val tripDuration: Duration = (track.last().time - track.first().time).milliseconds
+        val avgSpeed: Double = distance / 1000 / tripDuration.toDouble(DurationUnit.HOURS)
+
+        val message = getString(
+            R.string.track_statistics_detail,
+            getFormattedDistance(distance),
+            DateUtils.formatElapsedTime(tripDuration.inWholeSeconds),
+            avgSpeed.toString()
+        )
+        AlertDialog.Builder(this)
+            .setMessage(message)
+            .setNeutralButton("Cool!") { dialog, which -> }
+            .show()
+    }
+
+    private fun getFormattedDistance(distance: Double): String {
+        return if (distance > 5000) {
+            DecimalFormat("#.0 km").format(distance / 1000)
+        } else {
+            DecimalFormat("# m").format(distance)
+        }
+    }
 
     private fun saveGPXDocument(defaultFilename: String, sourceType: String) {
         // https://developer.android.com/training/data-storage/shared/documents-files#create-file
@@ -622,7 +718,7 @@ class MainMapActivity : AppCompatActivity() {
 
                 // FIXME: Find a way how this works
 //                val sourceType = result.data?.getStringExtra(Intent.EXTRA_TITLE)
-                Log.i(TAG, "SOURCE_TYPE=${gpxWriterSource}");
+                Log.i(TAG, "SOURCE_TYPE=${gpxWriterSource}")
 
                 Log.i(TAG, "saving '${uri?.path}'...")
                 if (uri != null) {
@@ -632,9 +728,9 @@ class MainMapActivity : AppCompatActivity() {
 
                                 val track = GPX.builder().addTrack { track ->
                                     track.addSegment { segment ->
-                                        when(gpxWriterSource) {
+                                        when (gpxWriterSource) {
                                             "GXP_SOURCE_ROUTE" -> {
-                                                distanceMeasurementPoints.forEach {  point ->
+                                                distanceMeasurementPoints.forEach { point ->
                                                     segment.addPoint(
                                                         WayPoint.of(
                                                             point.latitude(),
@@ -644,7 +740,7 @@ class MainMapActivity : AppCompatActivity() {
                                                 }
                                             }
                                             "GXP_SOURCE_TRACK" -> {
-                                                locationService.trackPoints.forEach {  point ->
+                                                trackLocations.forEach { point ->
                                                     segment.addPoint(
                                                         WayPoint.of(
                                                             point.latitude,
@@ -657,7 +753,7 @@ class MainMapActivity : AppCompatActivity() {
                                             }
                                             "GPX_SIMPLIFIED_TRACK" -> {
                                                 val gpxData: MutableList<Point> = mutableListOf()
-                                                locationService.trackPoints.forEach { location ->
+                                                trackLocations.forEach { location ->
                                                     gpxData.add(
                                                         Point.fromLngLat(
                                                             location.longitude,
@@ -666,8 +762,14 @@ class MainMapActivity : AppCompatActivity() {
                                                     )
                                                 }
                                                 // tolerance is in degrees.
-                                                val simplifiedData = TurfTransformation.simplify(gpxData, TRACK_SIMPLIFY_TOLERANCE)
-                                                Log.i(TAG, "original: ${gpxData.size}  simplified: ${simplifiedData.size}")
+                                                val simplifiedData = TurfTransformation.simplify(
+                                                    gpxData,
+                                                    TRACK_SIMPLIFY_TOLERANCE
+                                                )
+                                                Log.i(
+                                                    TAG,
+                                                    "original: ${gpxData.size}  simplified: ${simplifiedData.size}"
+                                                )
 
                                                 Log.i(TAG, "TODO: write GPX_SIMPLIFIED_TRACK")
                                             }

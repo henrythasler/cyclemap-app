@@ -16,7 +16,22 @@
         app:mapbox_scaleBarTextSize="14dp"
         app:mapbox_scaleBarHeight="5dp"
         app:mapbox_scaleBarGravity="bottom|end"
-        app:mapbox_scaleBarIsMetricUnits="true"/>
+        app:mapbox_scaleBarIsMetricUnits="true">
+
+        <TextView
+            android:id="@+id/trackDetails"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="10dp"
+            android:background="@drawable/rect_rounded_shape"
+            android:backgroundTint="#BFF6F4E7"
+            android:backgroundTintMode="src_in"
+            android:text="TrackDetails"
+            android:textSize="14sp"
+            android:typeface="normal"
+            android:visibility="gone" />
+
+    </com.mapbox.maps.MapView>
 
     <ImageView
         android:id="@+id/crosshair"
@@ -34,6 +49,7 @@
         android:layout_height="32dp"
         android:layout_marginBottom="200dp"
         android:background="@drawable/rect_rounded_button"
+        android:visibility="visible"
         app:layout_anchor="@+id/mapView"
         app:layout_anchorGravity="bottom|start"
         app:srcCompat="@drawable/ic_baseline_my_location_24" />
@@ -103,8 +119,8 @@
         android:text="RouteDetails"
         android:textSize="14sp"
         android:typeface="normal"
-        android:visibility="invisible"
+        android:visibility="gone"
         app:layout_anchor="@+id/mapView"
-        app:layout_anchorGravity="start|top" />
+        app:layout_anchorGravity="top|center" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
