@@ -13,6 +13,7 @@ import android.text.format.DateUtils
 import android.util.Log
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.PopupMenu
 import android.widget.TextView
@@ -51,6 +52,8 @@ import java.io.IOException
 import java.lang.Integer.max
 import java.lang.ref.WeakReference
 import java.text.DecimalFormat
+import java.text.SimpleDateFormat
+import java.util.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
@@ -189,7 +192,11 @@ class MainMapActivity : AppCompatActivity() {
         }
         findViewById<ImageButton>(R.id.recordTrack).setOnClickListener { onRecordTrackButton() }
 
-        findViewById<TextView>(R.id.trackDetails).setOnClickListener { onTrackDetailsClick(trackLocations) }
+        findViewById<TextView>(R.id.trackDetails).setOnClickListener {
+            onTrackDetailsClick(
+                trackLocations
+            )
+        }
 
         // catch map events
         mapView.gestures.addOnMoveListener(moveListener)
@@ -258,13 +265,13 @@ class MainMapActivity : AppCompatActivity() {
             }
         })
 
-        if(trackPoints.isNotEmpty())
+        if (trackPoints.isNotEmpty())
             addTrackLayer(style)
     }
 
     private fun addTrackLayer(style: Style) {
-        if(!style.styleLayerExists("TRACK")) {
-            if(style.styleLayerExists("mapbox-location-indicator-layer")) {
+        if (!style.styleLayerExists("TRACK")) {
+            if (style.styleLayerExists("mapbox-location-indicator-layer")) {
                 style.addLayerBelow(lineLayer("TRACK", "TRACK_SOURCE") {
                     lineCap(LineCap.ROUND)
                     lineJoin(LineJoin.ROUND)
@@ -272,8 +279,7 @@ class MainMapActivity : AppCompatActivity() {
                     lineWidth(9.0)
                     lineColor(getColor(R.color.colorTrack))
                 }, "mapbox-location-indicator-layer")
-            }
-            else {
+            } else {
                 Log.i(TAG, "Layer 'mapbox-location-indicator-layer' not found.")
                 style.addLayer(lineLayer("TRACK", "TRACK_SOURCE") {
                     lineCap(LineCap.ROUND)
@@ -559,7 +565,7 @@ class MainMapActivity : AppCompatActivity() {
                     R.id.clearTrack -> {
                         trackRecording = false
                         map.getStyle { style ->
-                            if(style.styleLayerExists("TRACK")) {
+                            if (style.styleLayerExists("TRACK")) {
                                 style.removeStyleLayer("TRACK")
                             }
                         }
@@ -642,29 +648,33 @@ class MainMapActivity : AppCompatActivity() {
     }
 
     private fun updateTrackStatistics(track: List<Location>, view: TextView) {
-        if(track.size >= 2) {
-            val points: MutableList<Point> = mutableListOf()
-            track.forEach { location ->
-                points.add(
-                    Point.fromLngLat(
-                        location.longitude,
-                        location.latitude,
-                    )
-                )
-            }
+        if (track.size < 2) return
 
-            val geometry = LineString.fromLngLats(points)
-            val distance = TurfMeasurement.length(geometry, UNIT_METERS)
-            val tripDuration: Duration = (track.last().time - track.first().time).milliseconds
-            view.text = getString(
-                R.string.track_statistics,
-                getFormattedDistance(distance),
-                DateUtils.formatElapsedTime(tripDuration.inWholeSeconds)
+        val points: MutableList<Point> = mutableListOf()
+        track.forEach { location ->
+            points.add(
+                Point.fromLngLat(
+                    location.longitude,
+                    location.latitude,
+                )
             )
         }
+
+        val geometry = LineString.fromLngLats(points)
+        val distance = TurfMeasurement.length(geometry, UNIT_METERS)
+        val tripDuration: Duration =
+            ((if (trackRecording) System.currentTimeMillis() else track.last().time) - track.first().time).milliseconds
+        view.text = getString(
+            R.string.track_statistics,
+            getFormattedDistance(distance),
+            DateUtils.formatElapsedTime(tripDuration.inWholeSeconds)
+        )
+
     }
 
     private fun onTrackDetailsClick(track: List<Location>) {
+        if (track.size < 2) return
+
         val points: MutableList<Point> = mutableListOf()
         track.forEach { location ->
             points.add(
@@ -676,19 +686,36 @@ class MainMapActivity : AppCompatActivity() {
         }
         val geometry = LineString.fromLngLats(points)
         val distance = TurfMeasurement.length(geometry, UNIT_METERS)
-        val tripDuration: Duration = (track.last().time - track.first().time).milliseconds
+        val tripDuration: Duration =
+            ((if (trackRecording) System.currentTimeMillis() else track.last().time) - track.first().time).milliseconds
         val avgSpeed: Double = distance / 1000 / tripDuration.toDouble(DurationUnit.HOURS)
 
-        val message = getString(
-            R.string.track_statistics_detail,
-            getFormattedDistance(distance),
-            DateUtils.formatElapsedTime(tripDuration.inWholeSeconds),
-            avgSpeed.toString()
-        )
-        AlertDialog.Builder(this)
-            .setMessage(message)
-            .setNeutralButton("Cool!") { dialog, which -> }
-            .show()
+        val frameView = FrameLayout(this)
+        val alertDialog = AlertDialog.Builder(this)
+            .setTitle("Track Statistics")
+            .setNeutralButton("ok", null)
+            .setView(frameView)
+            .create()
+
+        val inflater = alertDialog.layoutInflater
+        inflater.inflate(R.layout.track_statistics_detail, frameView)
+
+        Log.i(TAG, Date(tripDuration.inWholeMilliseconds).toString())
+
+        /** update actual data */
+        frameView.findViewById<TextView>(R.id.track_statistics_detail_distance).text =
+            getFormattedDistance(distance)
+        frameView.findViewById<TextView>(R.id.track_statistics_detail_time).text =
+            DateUtils.formatElapsedTime(tripDuration.inWholeSeconds)
+        frameView.findViewById<TextView>(R.id.track_statistics_detail_avg_speed).text =
+            getString(
+                R.string.track_statistics_detail_avg_speed,
+                DecimalFormat("#.0").format(avgSpeed)
+            )
+        frameView.findViewById<TextView>(R.id.track_statistics_detail_time_start).text =
+            SimpleDateFormat("HH:mm", Locale.GERMANY).format(Date(track.first().time))
+
+        alertDialog.show()
     }
 
     private fun getFormattedDistance(distance: Double): String {

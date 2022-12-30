@@ -26,8 +26,8 @@
             android:background="@drawable/rect_rounded_shape"
             android:backgroundTint="#BFF6F4E7"
             android:backgroundTintMode="src_in"
-            android:text="TrackDetails"
-            android:textSize="14sp"
+            android:text="0 m"
+            android:textSize="16sp"
             android:typeface="normal"
             android:visibility="gone" />
 
@@ -117,7 +117,7 @@
         android:backgroundTint="#BFF6F4E7"
         android:backgroundTintMode="src_in"
         android:text="RouteDetails"
-        android:textSize="14sp"
+        android:textSize="16sp"
         android:typeface="normal"
         android:visibility="gone"
         app:layout_anchor="@+id/mapView"
