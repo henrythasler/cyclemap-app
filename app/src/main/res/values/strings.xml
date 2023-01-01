@@ -13,10 +13,11 @@
     <string name="mapbox_access_token">pk.eyJ1IjoibXljeWNsZW1hcCIsImEiOiJjaXJhYnoxcGEwMDRxaTlubnk3cGZpbTBmIn0.TEO9UhyyX1nFKDTwO4K1xg</string>
     <string name="location">enable location</string>
     <string name="mapCrosshairDescription">crosshair</string>
-    <string name="menu_hillshading">toggle hillshading</string>
+    <string name="menu_hillshading">Hillshading</string>
     <string name="menu_shareposition">Share Map Position</string>
     <string name="screen_always_on">screen always-on</string>
 
+    <string name="route_statistics">%1$s Wpts\n%2$s</string>
     <string name="track_statistics">%1$s\n%2$s</string>
     <string name="track_statistics_detail_avg_speed">%1$s km/h</string>
 </resources>

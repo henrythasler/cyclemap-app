@@ -15,11 +15,11 @@ An Android app for offline usage of vector-tiles
 - [x] User location
 - [ ] Geosearch
 - [x] Crosshair
-- [ ] map options (scale, hillshading, style select)
+- [x] map options (scale, hillshading, style select)
 - [x] Distance measurement
-- [ ] Record/show track; 
-- [ ] track statistics
-- [ ] clear current track
+- [x] Record/show track; 
+- [x] track statistics
+- [x] clear current track
 - [ ] Share map position
 - [x] Load/show route (GPX)
 - [ ] Inspect element
@@ -27,9 +27,19 @@ An Android app for offline usage of vector-tiles
 
 ## References
 
-- [JPX - Java library for creating, reading and writing GPX data](https://github.com/jenetics/jpx)
-- [Material File Picker](https://github.com/nbsp-team/MaterialFilePicker)
+### General
+
+- [Using Bluetooth GPS with Android ](https://l-36.com/bluetooth_gps_provider.php)
 
 ### Mapbox
 
 - [Mapbox Tutorial For Android: Getting Started](https://www.raywenderlich.com/378151-mapbox-tutorial-for-android-getting-started)
+
+### Android Programming
+
+- [JPX - Java library for creating, reading and writing GPX data](https://github.com/jenetics/jpx)
+
+#### Location
+- [phyphox: Android](https://github.com/phyphox/phyphox-android)
+- [Google Play Location Samples](https://github.com/android/location-samples)
+- 

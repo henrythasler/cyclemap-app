@@ -25,25 +25,30 @@
     </item>
     <item android:title="Style">
         <menu>
-            <item
-                android:id="@+id/style_cyclemap"
-                android:title="Cyclemap" />
-            <item
-                android:id="@+id/style_shadow"
-                android:title="Shadow" />
-            <item
-                android:id="@+id/style_xray"
-                android:title="X-Ray" />
+            <group android:checkableBehavior="single">
+                <item
+                    android:id="@+id/style_cyclemap"
+                    android:checked="true"
+                    android:title="Cyclemap" />
+                <item
+                    android:id="@+id/style_shadow"
+                    android:title="Shadow" />
+                <item
+                    android:id="@+id/style_xray"
+                    android:title="X-Ray" />
+            </group>
         </menu>
     </item>
     <item android:title="Advanced" >
         <menu >
-            <item
-                android:id="@+id/hillshading"
-                android:title="@string/menu_hillshading"/>
-            <item
-                android:id="@+id/keepScreenOn"
-                android:title="@string/screen_always_on" />
+            <group android:checkableBehavior="all">
+                <item
+                    android:id="@+id/hillshading"
+                    android:title="@string/menu_hillshading"/>
+                <item
+                    android:id="@+id/keepScreenOn"
+                    android:title="@string/screen_always_on" />
+            </group>
         </menu>
     </item>
 </menu>

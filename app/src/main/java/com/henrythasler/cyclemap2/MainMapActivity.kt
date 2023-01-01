@@ -11,12 +11,8 @@ import android.net.Uri
 import android.os.*
 import android.text.format.DateUtils
 import android.util.Log
-import android.view.View
-import android.view.WindowManager
-import android.widget.FrameLayout
-import android.widget.ImageButton
-import android.widget.PopupMenu
-import android.widget.TextView
+import android.view.*
+import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.mapbox.android.gestures.MoveGestureDetector
@@ -63,6 +59,7 @@ class MainMapActivity : AppCompatActivity() {
     private lateinit var locationPermissionHelper: LocationPermissionHelper
     private lateinit var map: MapboxMap
     private lateinit var mapView: MapView
+    private lateinit var popupMainMenu: PopupMenu
 
     private var followLocation: Boolean = false
 
@@ -82,7 +79,6 @@ class MainMapActivity : AppCompatActivity() {
     private var trackLocations: List<Location> = listOf()
     private val trackRecordingTimerHandler = Handler(Looper.getMainLooper())
 
-    private var screenAlwaysOn: Boolean = false
     private var gpxWriterSource: String? = null
 
     private val moveListener: OnMoveListener = object : OnMoveListener {
@@ -171,18 +167,16 @@ class MainMapActivity : AppCompatActivity() {
         }
 
         // set up user interaction
-        val menuButton: View = findViewById(R.id.menuButton)
-        menuButton.setOnClickListener { view -> onMenuButton(view) }
-
-        val locateButton: View = findViewById(R.id.locationButton)
-        locateButton.setOnClickListener { view -> onLocateButton(view) }
-
-        val crosshairButton: View = findViewById(R.id.crosshair)
-        crosshairButton.setOnClickListener { view -> onCrosshairClick(view) }
-        crosshairButton.setOnLongClickListener { view ->
-            onCrosshairLongClick(view)
-            true
+        popupMainMenu = PopupMenu(this, findViewById(R.id.menuAnchor)).apply {
+            setOnMenuItemClickListener { item -> onMenuItem(item)}
+            inflate(R.menu.main_menu)
         }
+
+        findViewById<View>(R.id.menuButton).setOnClickListener { popupMainMenu.show() }
+        findViewById<View>(R.id.locationButton).setOnClickListener { onLocateButton() }
+
+        findViewById<View>(R.id.crosshair).setOnClickListener { onCrosshairClick() }
+        findViewById<View>(R.id.crosshair).setOnLongClickListener { onCrosshairLongClick() }
 
         findViewById<View?>(R.id.saveAsRoute).setOnClickListener {
             saveGPXDocument(
@@ -191,7 +185,6 @@ class MainMapActivity : AppCompatActivity() {
             )
         }
         findViewById<ImageButton>(R.id.recordTrack).setOnClickListener { onRecordTrackButton() }
-
         findViewById<TextView>(R.id.trackDetails).setOnClickListener {
             onTrackDetailsClick(
                 trackLocations
@@ -212,6 +205,16 @@ class MainMapActivity : AppCompatActivity() {
         // make sure we always zoom into the map center
         mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
         Log.i(TAG, "onStyleLoaded(): focalPoint=" + mapView.gestures.focalPoint.toString())
+
+        /** set checkbox-state based on layer availability and visibility */
+        if(style.styleLayerExists("hillshading")) {
+            popupMainMenu.menu.findItem(R.id.hillshading).isEnabled = true
+            popupMainMenu.menu.findItem(R.id.hillshading).isChecked = style.getLayer("hillshading")?.visibility == Visibility.VISIBLE
+        }
+        else {
+            popupMainMenu.menu.findItem(R.id.hillshading).isEnabled = false
+            popupMainMenu.menu.findItem(R.id.hillshading).isChecked = false
+        }
 
         style.addSource(geoJsonSource("DISTANCE_MEASUREMENT_SOURCE") {
             if (distanceMeasurementPoints.size > 0) {
@@ -292,7 +295,7 @@ class MainMapActivity : AppCompatActivity() {
         }
     }
 
-    private fun onCrosshairClick(view: View?) {
+    private fun onCrosshairClick() {
         var isDoubleClick = false
         if (SystemClock.elapsedRealtime() - lastClickedTimestamp < 500) {
             isDoubleClick = true
@@ -340,12 +343,13 @@ class MainMapActivity : AppCompatActivity() {
         updateDistanceMeasurement()
     }
 
-    private fun onCrosshairLongClick(view: View?) {
+    private fun onCrosshairLongClick(): Boolean {
         if (distanceMeasurement && (distanceMeasurementPoints.size > 2)) {
             distanceMeasurementPoints.removeAt(max(0, distanceMeasurementPoints.lastIndex - 1))
             Log.i(TAG, "distanceMeasurementPoints.size=${distanceMeasurementPoints.size}")
             updateDistanceMeasurement()
         }
+        return true
     }
 
     private fun updateDistanceMeasurement() {
@@ -373,7 +377,7 @@ class MainMapActivity : AppCompatActivity() {
         }
     }
 
-    private fun onLocateButton(view: View) {
+    private fun onLocateButton() {
         if (mapView.location2.enabled) {
             // jump back to current location if the user has manually scrolled away
             if (!followLocation) {
@@ -515,68 +519,74 @@ class MainMapActivity : AppCompatActivity() {
         map.setCamera(cameraPosition)
     }
 
-    private fun onMenuButton(view: View?) {
-        PopupMenu(this, view).apply {
-            // MainActivity implements OnMenuItemClickListener
-            setOnMenuItemClickListener {
-                when (it.itemId) {
-                    R.id.style_cyclemap -> {
-                        map.loadStyleUri(resources.getString(R.string.CYCLEMAP_STYLE_URL)) { style ->
-                            onStyleLoaded(style)
-                        }
-                    }
-                    R.id.style_shadow -> {
-                        map.loadStyleUri(resources.getString(R.string.SHADOW_STYLE_URL)) { style ->
-                            onStyleLoaded(style)
-                        }
-                    }
-                    R.id.style_xray -> {
-                        map.loadStyleUri(resources.getString(R.string.XRAY_STYLE_URL)) { style ->
-                            onStyleLoaded(style)
-                        }
-                    }
-                    R.id.route_load_gpx -> {
-                        loadGPXDocument()
-                    }
-                    R.id.route_clear -> {
-                        map.getStyle { style ->
-                            style.getLayer("ROUTE")?.visibility(Visibility.NONE)
-                        }
-                        routePoints.clear()
-                        findViewById<TextView>(R.id.routeDetails).visibility = View.INVISIBLE
-                    }
-                    R.id.hillshading -> {
-                        mapView.getMapboxMap().getStyle { style ->
-                            style.getLayer("hillshading")?.let { layer ->
-                                layer.visibility(if (layer.visibility == Visibility.NONE) Visibility.VISIBLE else Visibility.NONE)
-                            }
-                        }
-                    }
-                    R.id.keepScreenOn -> {
-                        screenAlwaysOn = !screenAlwaysOn
-                        if (screenAlwaysOn)
-                            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                        else
-                            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    }
-                    R.id.saveTrackGpx -> {
-                        saveGPXDocument("track.gpx", "GXP_SOURCE_TRACK")
-                    }
-                    R.id.clearTrack -> {
-                        trackRecording = false
-                        map.getStyle { style ->
-                            if (style.styleLayerExists("TRACK")) {
-                                style.removeStyleLayer("TRACK")
-                            }
-                        }
-                        disableLocationService()
-                        findViewById<TextView>(R.id.trackDetails).visibility = View.GONE
+    private fun onMenuItem(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.style_cyclemap -> {
+                item.isChecked = true
+                map.loadStyleUri(resources.getString(R.string.CYCLEMAP_STYLE_URL)) { style ->
+                    onStyleLoaded(style)
+                }
+                true
+            }
+            R.id.style_shadow -> {
+                item.isChecked = true
+                map.loadStyleUri(resources.getString(R.string.SHADOW_STYLE_URL)) { style ->
+                    onStyleLoaded(style)
+                }
+                true
+            }
+            R.id.style_xray -> {
+                item.isChecked = true
+                map.loadStyleUri(resources.getString(R.string.XRAY_STYLE_URL)) { style ->
+                    onStyleLoaded(style)
+                }
+                true
+            }
+            R.id.route_load_gpx -> {
+                loadGPXDocument()
+                true
+            }
+            R.id.route_clear -> {
+                map.getStyle { style ->
+                    style.getLayer("ROUTE")?.visibility(Visibility.NONE)
+                }
+                routePoints.clear()
+                findViewById<TextView>(R.id.routeDetails).visibility = View.INVISIBLE
+                true
+            }
+            R.id.hillshading -> {
+                item.isChecked = !item.isChecked
+                mapView.getMapboxMap().getStyle { style ->
+                    style.getLayer("hillshading")?.let { layer ->
+                        layer.visibility(if (layer.visibility == Visibility.NONE) Visibility.VISIBLE else Visibility.NONE)
                     }
                 }
                 true
             }
-            inflate(R.menu.main_menu)
-            show()
+            R.id.keepScreenOn -> {
+                item.isChecked = !item.isChecked
+                if (item.isChecked)
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                else
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                true
+            }
+            R.id.saveTrackGpx -> {
+                saveGPXDocument("track.gpx", "GXP_SOURCE_TRACK")
+                true
+            }
+            R.id.clearTrack -> {
+                trackRecording = false
+                map.getStyle { style ->
+                    if (style.styleLayerExists("TRACK")) {
+                        style.removeStyleLayer("TRACK")
+                    }
+                }
+                disableLocationService()
+                findViewById<TextView>(R.id.trackDetails).visibility = View.GONE
+                true
+            }
+            else -> false
         }
     }
 
@@ -642,9 +652,11 @@ class MainMapActivity : AppCompatActivity() {
         }
 
     private fun updateRouteStatistics(geometry: LineString, view: TextView) {
-        val distance = TurfMeasurement.length(geometry, UNIT_METERS)
-        val formattedDistance = getFormattedDistance(distance)
-        view.text = "${routePoints.size} Wpts\n$formattedDistance"
+        view.text = getString(
+            R.string.route_statistics,
+            routePoints.size.toString(),
+            getFormattedDistance(TurfMeasurement.length(geometry, UNIT_METERS))
+        )
     }
 
     private fun updateTrackStatistics(track: List<Location>, view: TextView) {
