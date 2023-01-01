@@ -364,7 +364,7 @@ class MainMapActivity : AppCompatActivity() {
         )
 
         findViewById<View?>(R.id.saveAsRoute).visibility =
-            if (distanceMeasurementPoints.size > 2) View.VISIBLE else View.INVISIBLE
+            if (distanceMeasurementPoints.size > 2) View.VISIBLE else View.GONE
 
         val distance =
             TurfMeasurement.length(LineString.fromLngLats(distanceMeasurementPoints), UNIT_METERS)
@@ -406,7 +406,7 @@ class MainMapActivity : AppCompatActivity() {
             followLocation = true
         }
         findViewById<ImageButton>(R.id.recordTrack).visibility =
-            if (mapView.location2.enabled) View.VISIBLE else View.INVISIBLE
+            if (mapView.location2.enabled) View.VISIBLE else View.GONE
     }
 
     private fun onRecordTrackButton() {
