@@ -1,11 +1,13 @@
 package com.henrythasler.cyclemap2
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.location.Location
 import android.net.Uri
 import android.os.*
@@ -15,6 +17,9 @@ import android.view.*
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.geojson.Feature
 import com.mapbox.geojson.LineString
@@ -48,6 +53,7 @@ import java.io.IOException
 import java.lang.Integer.max
 import java.lang.ref.WeakReference
 import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.time.Duration
@@ -63,6 +69,9 @@ class MainMapActivity : AppCompatActivity() {
 
     private var followLocation: Boolean = false
 
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+
     /** setup and interface for the location service to provide location updates when the
      * app is minimized */
     private lateinit var locationService: LocationService
@@ -77,7 +86,7 @@ class MainMapActivity : AppCompatActivity() {
     private var trackRecording: Boolean = false
     private var trackPoints: List<Point> = listOf()
     private var trackLocations: List<Location> = listOf()
-    private val trackRecordingTimerHandler = Handler(Looper.getMainLooper())
+    private val timerHandler = Handler(Looper.getMainLooper())
 
     private var gpxWriterSource: String? = null
 
@@ -93,8 +102,7 @@ class MainMapActivity : AppCompatActivity() {
 
         override fun onMoveEnd(detector: MoveGestureDetector) {
             // this is a workaround to reliably set the focalPoint for double-tap-zoom
-            mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
-            Log.i(TAG, "onMoveEnd(): focalPoint=" + mapView.gestures.focalPoint.toString())
+//            mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
         }
     }
 
@@ -102,14 +110,19 @@ class MainMapActivity : AppCompatActivity() {
      * It's basically an event-loop-based timer callback that does something and triggers itself again if the
      * right conditions are met.
      */
-    private val trackTimerRunnable: Runnable = object : Runnable {
+    private val timerRunnable: Runnable = object : Runnable {
         override fun run() {
             if (trackRecording && locationServiceBound) {
                 trackLocations = locationService.locations.toList()
                 updateTrack(trackLocations)
                 updateTrackStatistics(trackLocations, findViewById(R.id.trackDetails))
                 findViewById<TextView>(R.id.trackDetails).visibility = View.VISIBLE
-                trackRecordingTimerHandler.postDelayed(this, TRACK_RECORDING_INTERVAL)
+                timerHandler.postDelayed(this, TRACK_RECORDING_INTERVAL)
+            }
+            else {
+                // make sure we always zoom into the map center
+                mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
+                Log.i(TAG, "timerRunnable: focalPoint=" + mapView.gestures.focalPoint.toString())
             }
         }
     }
@@ -124,8 +137,8 @@ class MainMapActivity : AppCompatActivity() {
 
     private val onIndicatorPositionChangedListener = OnIndicatorPositionChangedListener {
         if (followLocation) {
-            mapView.getMapboxMap().setCamera(CameraOptions.Builder().center(it).build())
-            mapView.gestures.focalPoint = map.pixelForCoordinate(it)
+            map.setCamera(CameraOptions.Builder().center(it).build())
+//            mapView.gestures.focalPoint = map.pixelForCoordinate(it)
         }
     }
 
@@ -139,7 +152,7 @@ class MainMapActivity : AppCompatActivity() {
             Log.i(TAG, "onServiceConnected")
 
             /** start the timer to regularly update the UI with the latest track (information) */
-            trackRecordingTimerHandler.post(trackTimerRunnable)
+            timerHandler.post(timerRunnable)
         }
 
         override fun onServiceDisconnected(arg0: ComponentName) {
@@ -165,6 +178,7 @@ class MainMapActivity : AppCompatActivity() {
         locationPermissionHelper.checkPermissions {
             Log.i(TAG, "permissions ok")
         }
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
         // set up user interaction
         popupMainMenu = PopupMenu(this, findViewById(R.id.menuAnchor)).apply {
@@ -201,10 +215,12 @@ class MainMapActivity : AppCompatActivity() {
         // prevent certain UI operations
         mapView.gestures.rotateEnabled = false
         mapView.gestures.pitchEnabled = false
+        mapView.gestures.scrollDecelerationEnabled = true;
 
         // make sure we always zoom into the map center
-        mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
-        Log.i(TAG, "onStyleLoaded(): focalPoint=" + mapView.gestures.focalPoint.toString())
+//        mapView.gestures.focalPoint = map.pixelForCoordinate(map.cameraState.center)
+//        Log.i(TAG, "onStyleLoaded(): focalPoint=" + mapView.gestures.focalPoint.toString())
+        timerHandler.postDelayed(timerRunnable, 1000)
 
         /** set checkbox-state based on layer availability and visibility */
         if(style.styleLayerExists("hillshading")) {
@@ -344,10 +360,15 @@ class MainMapActivity : AppCompatActivity() {
     }
 
     private fun onCrosshairLongClick(): Boolean {
-        if (distanceMeasurement && (distanceMeasurementPoints.size > 2)) {
-            distanceMeasurementPoints.removeAt(max(0, distanceMeasurementPoints.lastIndex - 1))
-            Log.i(TAG, "distanceMeasurementPoints.size=${distanceMeasurementPoints.size}")
-            updateDistanceMeasurement()
+        if (distanceMeasurement) {
+            if(distanceMeasurementPoints.size > 2) {
+                distanceMeasurementPoints.removeAt(max(0, distanceMeasurementPoints.lastIndex - 1))
+                Log.i(TAG, "distanceMeasurementPoints.size=${distanceMeasurementPoints.size}")
+                updateDistanceMeasurement()
+            }
+        }
+        else {
+            showCrosshairDetails()
         }
         return true
     }
@@ -542,6 +563,16 @@ class MainMapActivity : AppCompatActivity() {
                 }
                 true
             }
+            R.id.style_sat -> {
+                item.isChecked = true
+                map.loadStyleUri(Style.SATELLITE) { style -> onStyleLoaded(style) }
+                true
+            }
+            R.id.style_traffic -> {
+                item.isChecked = true
+                map.loadStyleUri(Style.TRAFFIC_DAY) { style -> onStyleLoaded(style) }
+                true
+            }
             R.id.route_load_gpx -> {
                 loadGPXDocument()
                 true
@@ -584,6 +615,10 @@ class MainMapActivity : AppCompatActivity() {
                 }
                 disableLocationService()
                 findViewById<TextView>(R.id.trackDetails).visibility = View.GONE
+                true
+            }
+            R.id.location_details -> {
+                showLocationDetails()
                 true
             }
             else -> false
@@ -736,6 +771,65 @@ class MainMapActivity : AppCompatActivity() {
         } else {
             DecimalFormat("# m").format(distance)
         }
+    }
+
+    private fun showLocationDetails() {
+//        val permission = ContextCompat.checkSelfPermission(
+//            this,
+//            Manifest.permission.ACCESS_FINE_LOCATION
+//        )
+//
+//        if (permission == PackageManager.PERMISSION_GRANTED) {
+//            fusedLocationClient.lastLocation
+//                .addOnSuccessListener { location : Location? ->
+//
+//                    val frameView = FrameLayout(this)
+//                    val alertDialog = AlertDialog.Builder(this)
+//                        .setTitle("Location Details")
+//                        .setNeutralButton("ok", null)
+//                        .setView(frameView)
+//                        .create()
+//
+//                    val inflater = alertDialog.layoutInflater
+//                    inflater.inflate(R.layout.location_detail, frameView)
+//
+//                    Log.i(TAG, location.toString())
+//
+//                    if(location != null) {
+//                        /** update actual data */
+//                        frameView.findViewById<TextView>(R.id.location_detail_latitude).text =
+//                            DecimalFormat("#.0000°").format(location.latitude)
+//                        frameView.findViewById<TextView>(R.id.location_detail_longitude).text =
+//                            DecimalFormat("#.0000°").format(location.longitude)
+//                        frameView.findViewById<TextView>(R.id.location_detail_altitude).text =
+//                            DecimalFormat("# m").format(location.altitude)
+//                    }
+//                    alertDialog.show()
+//                }
+//        }
+//        else {
+//            Log.e(LocationService.TAG, "Permission for ACCESS_FINE_LOCATION not granted.")
+//        }
+    }
+
+    private fun showCrosshairDetails() {
+        // https://medium.com/@eloisance/android-alertdialog-with-custom-layout-and-transparency-d95ca8b5e712
+        val inflater: LayoutInflater = this.layoutInflater
+        val frameView: View = inflater.inflate(R.layout.position_detail, null)
+        val alertDialog = AlertDialog.Builder(this, R.style.MyDialogStyle).apply {
+            setView(frameView)
+        }.create()
+
+        val point = map.cameraState.center
+        frameView.findViewById<TextView>(R.id.location_detail_latitude).text =
+            DecimalFormat("#.0000°", DecimalFormatSymbols.getInstance(Locale.ENGLISH)).format(point.latitude())
+        frameView.findViewById<TextView>(R.id.location_detail_longitude).text =
+            DecimalFormat("#.0000°", DecimalFormatSymbols.getInstance(Locale.ENGLISH)).format(point.longitude())
+
+        val button: Button? = frameView.findViewById(R.id.dialog_button)
+        button?.setOnClickListener { alertDialog.cancel() }
+
+        alertDialog.show()
     }
 
     private fun saveGPXDocument(defaultFilename: String, sourceType: String) {
