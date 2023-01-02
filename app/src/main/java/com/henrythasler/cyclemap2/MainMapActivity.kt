@@ -826,10 +826,32 @@ class MainMapActivity : AppCompatActivity() {
         frameView.findViewById<TextView>(R.id.location_detail_longitude).text =
             DecimalFormat("#.0000°", DecimalFormatSymbols.getInstance(Locale.ENGLISH)).format(point.longitude())
 
-        val button: Button? = frameView.findViewById(R.id.dialog_button)
-        button?.setOnClickListener { alertDialog.cancel() }
+        frameView.findViewById<Button>(R.id.dialog_button)?.setOnClickListener { alertDialog.cancel() }
+        frameView.findViewById<Button>(R.id.share_button)?.setOnClickListener {
+            sharePosition(map.cameraState.zoom, point)
+            alertDialog.cancel()
+        }
 
         alertDialog.show()
+    }
+
+    private fun sharePosition(zoom: Double, point: Point) {
+        val text = getString(R.string.share_map_position,
+            DecimalFormat("#.####", DecimalFormatSymbols.getInstance(Locale.ENGLISH)).format(zoom),
+            DecimalFormat("#.####", DecimalFormatSymbols.getInstance(Locale.ENGLISH)).format(point.latitude()),
+            DecimalFormat("#.####", DecimalFormatSymbols.getInstance(Locale.ENGLISH)).format(point.longitude()),
+        )
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        if (intent.resolveActivity(packageManager) != null) {
+            startActivity(intent)
+        }
+        else {
+            Log.e(TAG, "startActivity error")
+        }
     }
 
     private fun saveGPXDocument(defaultFilename: String, sourceType: String) {
