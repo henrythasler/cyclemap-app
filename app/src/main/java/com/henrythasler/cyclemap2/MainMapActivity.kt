@@ -1,13 +1,11 @@
 package com.henrythasler.cyclemap2
 
-import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.content.pm.PackageManager
 import android.location.Location
 import android.net.Uri
 import android.os.*
@@ -17,7 +15,6 @@ import android.view.*
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.mapbox.android.gestures.MoveGestureDetector
@@ -70,7 +67,7 @@ class MainMapActivity : AppCompatActivity() {
     private var followLocation: Boolean = false
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-
+    private lateinit var geoSearch: GeoSearch
 
     /** setup and interface for the location service to provide location updates when the
      * app is minimized */
@@ -179,6 +176,8 @@ class MainMapActivity : AppCompatActivity() {
             Log.i(TAG, "permissions ok")
         }
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        geoSearch = GeoSearch(WeakReference(this))
 
         // set up user interaction
         popupMainMenu = PopupMenu(this, findViewById(R.id.menuAnchor)).apply {
@@ -774,6 +773,7 @@ class MainMapActivity : AppCompatActivity() {
     }
 
     private fun showLocationDetails() {
+        geoSearch.search("augsburg")
 //        val permission = ContextCompat.checkSelfPermission(
 //            this,
 //            Manifest.permission.ACCESS_FINE_LOCATION
