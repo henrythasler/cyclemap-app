@@ -17,6 +17,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.textfield.TextInputEditText
 import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.geojson.Feature
 import com.mapbox.geojson.LineString
@@ -33,6 +35,7 @@ import com.mapbox.maps.extension.style.sources.addSource
 import com.mapbox.maps.extension.style.sources.generated.GeoJsonSource
 import com.mapbox.maps.extension.style.sources.generated.geoJsonSource
 import com.mapbox.maps.extension.style.sources.getSourceAs
+import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.delegates.listeners.OnCameraChangeListener
 import com.mapbox.maps.plugin.gestures.OnMoveListener
 import com.mapbox.maps.plugin.gestures.gestures
@@ -187,6 +190,7 @@ class MainMapActivity : AppCompatActivity() {
 
         findViewById<View>(R.id.menuButton).setOnClickListener { popupMainMenu.show() }
         findViewById<View>(R.id.locationButton).setOnClickListener { onLocateButton() }
+        findViewById<View>(R.id.searchButton).setOnClickListener { onSearchButton() }
 
         findViewById<View>(R.id.crosshair).setOnClickListener { onCrosshairClick() }
         findViewById<View>(R.id.crosshair).setOnLongClickListener { onCrosshairLongClick() }
@@ -390,11 +394,7 @@ class MainMapActivity : AppCompatActivity() {
             TurfMeasurement.length(LineString.fromLngLats(distanceMeasurementPoints), UNIT_METERS)
         val distanceText: TextView = findViewById(R.id.distanceText)
 
-        if (distance > 5000) {
-            distanceText.text = DecimalFormat("#.0 km").format(distance / 1000)
-        } else {
-            distanceText.text = DecimalFormat("# m").format(distance)
-        }
+        distanceText.text = getFormattedDistance(distance)
     }
 
     private fun onLocateButton() {
@@ -772,8 +772,28 @@ class MainMapActivity : AppCompatActivity() {
         }
     }
 
+    private fun onSearchButton() {
+        val sheet = BottomSheetBehavior.from(findViewById(R.id.geosearch))
+        if(sheet.state == BottomSheetBehavior.STATE_HALF_EXPANDED)
+            sheet.state = BottomSheetBehavior.STATE_HIDDEN
+        else sheet.state = BottomSheetBehavior.STATE_HALF_EXPANDED
+
+        geoSearch.resultTextView = findViewById(R.id.geosearchResults)
+
+        findViewById<ImageButton>(R.id.geoSearchButton).setOnClickListener {
+            geoSearch.search(findViewById<TextInputEditText>(R.id.geosearchInput).text.toString(),
+                map.cameraState.center
+            );
+        }
+
+//        val bottomSheetDialog = BottomSheetDialog(this)
+//        bottomSheetDialog.setContentView(R.layout.geosearch_bottomsheet)
+//        bottomSheetDialog.show()
+//
+//        geoSearch.resultTextView = bottomSheetDialog.findViewById<TextView>(R.id.textView)
+    }
+
     private fun showLocationDetails() {
-        geoSearch.search("augsburg")
 //        val permission = ContextCompat.checkSelfPermission(
 //            this,
 //            Manifest.permission.ACCESS_FINE_LOCATION
@@ -836,10 +856,17 @@ class MainMapActivity : AppCompatActivity() {
     }
 
     private fun sharePosition(zoom: Double, point: Point) {
-        val text = getString(R.string.share_map_position,
+        val text = getString(
+            R.string.share_map_position,
             DecimalFormat("#.####", DecimalFormatSymbols.getInstance(Locale.ENGLISH)).format(zoom),
-            DecimalFormat("#.####", DecimalFormatSymbols.getInstance(Locale.ENGLISH)).format(point.latitude()),
-            DecimalFormat("#.####", DecimalFormatSymbols.getInstance(Locale.ENGLISH)).format(point.longitude()),
+            DecimalFormat(
+                "#.####",
+                DecimalFormatSymbols.getInstance(Locale.ENGLISH)
+            ).format(point.latitude()),
+            DecimalFormat(
+                "#.####",
+                DecimalFormatSymbols.getInstance(Locale.ENGLISH)
+            ).format(point.longitude()),
         )
 
         val intent = Intent(Intent.ACTION_SEND).apply {
