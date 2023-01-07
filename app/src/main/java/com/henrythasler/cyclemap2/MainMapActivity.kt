@@ -15,6 +15,8 @@ import android.view.*
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -180,7 +182,7 @@ class MainMapActivity : AppCompatActivity() {
         }
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-        geoSearch = GeoSearch(WeakReference(this))
+        geoSearch = GeoSearch(WeakReference(this), findViewById(R.id.rvSearchResults))
 
         // set up user interaction
         popupMainMenu = PopupMenu(this, findViewById(R.id.menuAnchor)).apply {
@@ -778,7 +780,7 @@ class MainMapActivity : AppCompatActivity() {
             sheet.state = BottomSheetBehavior.STATE_HIDDEN
         else sheet.state = BottomSheetBehavior.STATE_HALF_EXPANDED
 
-        geoSearch.resultTextView = findViewById(R.id.geosearchResults)
+//        geoSearch.resultTextView = findViewById(R.id.geosearchResults)
 
         findViewById<ImageButton>(R.id.geoSearchButton).setOnClickListener {
             geoSearch.search(findViewById<TextInputEditText>(R.id.geosearchInput).text.toString(),

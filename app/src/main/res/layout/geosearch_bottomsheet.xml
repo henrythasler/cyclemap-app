@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:hint="Place"
             android:singleLine="true"
-            android:text="Mering" />
+            android:text="Landsberg" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -41,11 +41,11 @@
         app:layout_constraintTop_toBottomOf="@+id/textInputLayout"
         app:srcCompat="@drawable/ic_round_search_24" />
 
-    <TextView
-        android:id="@+id/geosearchResults"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvSearchResults"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="TextView"
+        android:layout_marginTop="8dp"
         app:layout_constraintEnd_toEndOf="@+id/textInputLayout"
         app:layout_constraintStart_toStartOf="@+id/textInputLayout"
         app:layout_constraintTop_toBottomOf="@+id/geoSearchButton" />
