@@ -40,6 +40,12 @@ An Android app for offline usage of vector-tiles
 - [JPX - Java library for creating, reading and writing GPX data](https://github.com/jenetics/jpx)
 
 #### Location
+
 - [phyphox: Android](https://github.com/phyphox/phyphox-android)
 - [Google Play Location Samples](https://github.com/android/location-samples)
-- 
+
+#### RecyclerView
+
+- [Create dynamic lists with RecyclerView](https://developer.android.com/develop/ui/views/layout/recyclerview)
+- [Android RecyclerView in Kotlin](https://www.geeksforgeeks.org/android-recyclerview-in-kotlin/)
+- [Simple Android RecyclerView example](https://stackoverflow.com/questions/40584424/simple-android-recyclerview-example)

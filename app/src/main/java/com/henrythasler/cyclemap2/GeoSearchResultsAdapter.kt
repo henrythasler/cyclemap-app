@@ -5,17 +5,18 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.mapbox.search.result.SearchSuggestion
 
-class GeoSearchResultsAdapter(private val onClick: (String) -> Unit) : RecyclerView.Adapter<GeoSearchResultsAdapter.ViewHolder>() {
+class GeoSearchResultsAdapter(private val onClick: (SearchSuggestion) -> Unit) : RecyclerView.Adapter<GeoSearchResultsAdapter.ViewHolder>() {
 
-    val dataSet: MutableList<String> = mutableListOf()
+    val dataSet: MutableList<SearchSuggestion> = mutableListOf()
     /**
      * Provide a reference to the type of views that you are using
      * (custom ViewHolder)
      */
-    class ViewHolder(view: View, val onClick: (String) -> Unit) : RecyclerView.ViewHolder(view) {
+    class ViewHolder(view: View, val onClick: (SearchSuggestion) -> Unit) : RecyclerView.ViewHolder(view) {
         val textView: TextView
-        private var currentItem: String? = null
+        private var currentItem: SearchSuggestion? = null
 
         init {
             // Define click listener for the ViewHolder's View
@@ -25,7 +26,7 @@ class GeoSearchResultsAdapter(private val onClick: (String) -> Unit) : RecyclerV
             }
         }
 
-        fun bind(item: String) {
+        fun bind(item: SearchSuggestion) {
             currentItem = item
         }
     }
@@ -43,7 +44,8 @@ class GeoSearchResultsAdapter(private val onClick: (String) -> Unit) : RecyclerV
     override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
         // Get element from your dataset at this position and replace the
         // contents of the view with that element
-        viewHolder.textView.text = dataSet[position]
+        val item = dataSet[position]
+        viewHolder.textView.text = "${item.name}, ${item.address?.region}, ${item.address?.country}"
         viewHolder.bind(dataSet[position])
     }
 

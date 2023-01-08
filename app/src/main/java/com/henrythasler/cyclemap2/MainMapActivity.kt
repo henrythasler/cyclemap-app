@@ -15,6 +15,7 @@ import android.view.*
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.addTextChangedListener
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -182,7 +183,7 @@ class MainMapActivity : AppCompatActivity() {
         }
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-        geoSearch = GeoSearch(WeakReference(this), findViewById(R.id.rvSearchResults))
+        geoSearch = GeoSearch(WeakReference(this), findViewById(R.id.rvSearchResults), map)
 
         // set up user interaction
         popupMainMenu = PopupMenu(this, findViewById(R.id.menuAnchor)).apply {
@@ -782,10 +783,14 @@ class MainMapActivity : AppCompatActivity() {
 
 //        geoSearch.resultTextView = findViewById(R.id.geosearchResults)
 
-        findViewById<ImageButton>(R.id.geoSearchButton).setOnClickListener {
-            geoSearch.search(findViewById<TextInputEditText>(R.id.geosearchInput).text.toString(),
-                map.cameraState.center
-            );
+        findViewById<TextInputEditText>(R.id.geosearchInput).addTextChangedListener {
+            val text = findViewById<TextInputEditText>(R.id.geosearchInput).text.toString()
+            if(text.length >= 3) {
+                geoSearch.search(
+                    text,
+                    map.cameraState.center
+                );
+            }
         }
 
 //        val bottomSheetDialog = BottomSheetDialog(this)
