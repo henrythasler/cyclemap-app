@@ -565,6 +565,11 @@ class MainMapActivity : AppCompatActivity() {
                 }
                 true
             }
+            R.id.style_outdoors -> {
+                item.isChecked = true
+                map.loadStyleUri(Style.OUTDOORS) { style -> onStyleLoaded(style) }
+                true
+            }
             R.id.style_sat -> {
                 item.isChecked = true
                 map.loadStyleUri(Style.SATELLITE) { style -> onStyleLoaded(style) }

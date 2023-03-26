@@ -23,7 +23,7 @@
                 android:title="Clear Track" />
         </menu>
     </item>
-    <item android:title="Style">
+    <item android:title="Layer">
         <menu>
             <group android:checkableBehavior="single">
                 <item
@@ -37,8 +37,11 @@
                     android:id="@+id/style_xray"
                     android:title="X-Ray" />
                 <item
+                    android:id="@+id/style_outdoors"
+                    android:title="Mapbox Outdoors" />
+                <item
                     android:id="@+id/style_sat"
-                    android:title="Satellite" />
+                    android:title="Mapbox Satellite" />
                 <item
                     android:id="@+id/style_traffic"
                     android:title="Traffic" />
