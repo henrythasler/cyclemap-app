@@ -11,8 +11,8 @@ android {
         applicationId "com.henrythasler.cyclemap2"
         minSdk 28
         targetSdk 33
-        versionCode 1
-        versionName "1.0"
+        versionCode computeVersionCode()
+        versionName "2.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -33,6 +33,22 @@ android {
     buildFeatures {
         viewBinding true
     }
+}
+
+// Define the function to compute the version code
+def computeVersionCode() {
+    def versionPropsFile = file('version.properties')
+    def Properties versionProps = new Properties()
+
+    if (versionPropsFile.canRead()) {
+        versionProps.load(new FileInputStream(versionPropsFile))
+    }
+
+    def code = (versionProps['VERSION_CODE'] ?: '0').toInteger() + 1
+    versionProps['VERSION_CODE'] = code.toString()
+    versionProps.store(versionPropsFile.newWriter(), null)
+
+    return code
 }
 
 dependencies {

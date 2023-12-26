@@ -20,6 +20,20 @@
         app:mapbox_scaleBarIsMetricUnits="true">
 
         <TextView
+            android:id="@+id/odometer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_margin="10dp"
+            android:background="@drawable/rect_rounded_shape"
+            android:backgroundTint="#BFF6F4E7"
+            android:backgroundTintMode="src_in"
+            android:text="0 km/h"
+            android:textSize="16sp"
+            android:typeface="normal"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/trackDetails"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
