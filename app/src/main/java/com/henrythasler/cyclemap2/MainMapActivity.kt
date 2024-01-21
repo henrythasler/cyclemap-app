@@ -749,7 +749,7 @@ private fun updateOdometer(view: TextView) {
                 if (location != null) {
                     view.text = getString(
                         R.string.track_statistics_detail_avg_speed,
-                        DecimalFormat("0.0").format(location.speed),
+                        DecimalFormat("0.0").format(location.speed * 3.6),
                     )
                 }
             }
