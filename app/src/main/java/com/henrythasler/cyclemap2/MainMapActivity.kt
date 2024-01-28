@@ -14,6 +14,7 @@ import android.os.*
 import android.text.format.DateUtils
 import android.util.Log
 import android.view.*
+import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -45,6 +46,29 @@ import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
 import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location2
+import com.mapbox.search.ApiType
+import com.mapbox.search.ResponseInfo
+import com.mapbox.search.SearchEngine
+import com.mapbox.search.SearchEngineSettings
+import com.mapbox.search.SearchOptions
+import com.mapbox.search.ServiceProvider
+import com.mapbox.search.common.AsyncOperationTask
+import com.mapbox.search.common.CompletionCallback
+import com.mapbox.search.common.IsoCountryCode
+import com.mapbox.search.common.IsoLanguageCode
+import com.mapbox.search.offline.OfflineResponseInfo
+import com.mapbox.search.offline.OfflineSearchEngine
+import com.mapbox.search.offline.OfflineSearchEngineSettings
+import com.mapbox.search.offline.OfflineSearchResult
+import com.mapbox.search.record.HistoryRecord
+import com.mapbox.search.result.SearchResult
+import com.mapbox.search.result.SearchSuggestion
+import com.mapbox.search.ui.adapter.engines.SearchEngineUiAdapter
+import com.mapbox.search.ui.view.CommonSearchViewConfiguration
+import com.mapbox.search.ui.view.DistanceUnitType
+import com.mapbox.search.ui.view.SearchResultAdapterItem
+import com.mapbox.search.ui.view.SearchResultsView
+import com.mapbox.search.ui.view.UiError
 import com.mapbox.turf.TurfConstants.UNIT_METERS
 import com.mapbox.turf.TurfMeasurement
 import com.mapbox.turf.TurfTransformation
@@ -74,7 +98,6 @@ class MainMapActivity : AppCompatActivity() {
     private var followLocation: Boolean = false
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var geoSearch: GeoSearch
 
     /** setup and interface for the location service to provide location updates when the
      * app is minimized */
@@ -136,6 +159,13 @@ class MainMapActivity : AppCompatActivity() {
         }
     }
 
+    private lateinit var searchResultsView: SearchResultsView
+    private lateinit var searchEngine: SearchEngine
+    private lateinit var offlineSearchEngine: OfflineSearchEngine
+    private lateinit var searchEngineUiAdapter: SearchEngineUiAdapter
+    private lateinit var loadingTask: AsyncOperationTask
+    private lateinit var searchRequestTask: AsyncOperationTask
+
 
 private val cameraChangeListener = OnCameraChangeListener {
     if (distanceMeasurement) {
@@ -189,8 +219,6 @@ override fun onCreate(savedInstanceState: Bundle?) {
     }
     fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-    geoSearch = GeoSearch(WeakReference(this), findViewById(R.id.rvSearchResults), map)
-
     // set up user interaction
     popupMainMenu = PopupMenu(this, findViewById(R.id.menuAnchor)).apply {
         setOnMenuItemClickListener { item -> onMenuItem(item) }
@@ -221,6 +249,138 @@ override fun onCreate(savedInstanceState: Bundle?) {
     mapView.gestures.addOnMoveListener(moveListener)
     map.addOnCameraChangeListener(cameraChangeListener)
     mapView.location2.addOnIndicatorPositionChangedListener(onIndicatorPositionChangedListener)
+
+    searchResultsView = findViewById<SearchResultsView>(R.id.searchResultsView)
+    searchResultsView.initialize(
+        SearchResultsView.Configuration(
+            CommonSearchViewConfiguration(DistanceUnitType.METRIC)
+        )
+    )
+    searchEngine = SearchEngine.createSearchEngineWithBuiltInDataProviders(
+        apiType = ApiType.GEOCODING,
+        settings = SearchEngineSettings(resources.getString(R.string.mapbox_access_token))
+    )
+    offlineSearchEngine = OfflineSearchEngine.create(
+        OfflineSearchEngineSettings(resources.getString(R.string.mapbox_access_token))
+    )
+    searchEngineUiAdapter = SearchEngineUiAdapter(
+        view = searchResultsView,
+        searchEngine = searchEngine,
+        offlineSearchEngine = offlineSearchEngine,
+    )
+    initSearchEngineUiAdapter()
+//    showSearchHistory()
+    findViewById<TextInputEditText>(R.id.geosearchInput).addTextChangedListener {
+        onSeachInputChanged()
+    }
+}
+
+    private fun initSearchEngineUiAdapter() {
+        searchEngineUiAdapter.addSearchListener(object : SearchEngineUiAdapter.SearchListener {
+
+            override fun onSuggestionsShown(suggestions: List<SearchSuggestion>, responseInfo: ResponseInfo) {
+                // Nothing to do
+            }
+
+            override fun onSearchResultsShown(
+                suggestion: SearchSuggestion,
+                results: List<SearchResult>,
+                responseInfo: ResponseInfo
+            ) {
+                Log.i(MainMapActivity.TAG, "onSearchResultsShown: $suggestion")
+//                closeSearchView()
+//                mapMarkersManager.showMarkers(results.map { it.coordinate })
+            }
+
+            override fun onOfflineSearchResultsShown(results: List<OfflineSearchResult>, responseInfo: OfflineResponseInfo) {
+                // Nothing to do
+            }
+
+            override fun onSuggestionSelected(searchSuggestion: SearchSuggestion): Boolean {
+                return false
+            }
+
+            override fun onSearchResultSelected(searchResult: SearchResult, responseInfo: ResponseInfo) {
+                Log.i(MainMapActivity.TAG, "onSearchResultSelected: $searchResult")
+                map.setCamera(CameraOptions.Builder().center(searchResult.coordinate).build())
+//                val sheet = BottomSheetBehavior.from(findViewById(R.id.geosearch))
+//                sheet.state = BottomSheetBehavior.STATE_HIDDEN
+                closeSearchView()
+//                searchPlaceView.open(SearchPlace.createFromSearchResult(searchResult, responseInfo))
+//                mapMarkersManager.showMarker(searchResult.coordinate)
+            }
+
+            override fun onOfflineSearchResultSelected(searchResult: OfflineSearchResult, responseInfo: OfflineResponseInfo) {
+//                closeSearchView()
+//                searchPlaceView.open(SearchPlace.createFromOfflineSearchResult(searchResult))
+//                mapMarkersManager.showMarker(searchResult.coordinate)
+            }
+
+            override fun onError(e: Exception) {
+                Toast.makeText(applicationContext, "Error happened: $e", Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onHistoryItemClick(historyRecord: HistoryRecord) {
+                Log.i(MainMapActivity.TAG, "onHistoryItemClick: $historyRecord")
+                doSearch(historyRecord.name)
+
+//                closeSearchView()
+//                searchPlaceView.open(SearchPlace.createFromIndexableRecord(historyRecord, distanceMeters = null))
+//
+//                locationEngine.userDistanceTo(this@MainActivity, historyRecord.coordinate) { distance ->
+//                    distance?.let {
+//                        searchPlaceView.updateDistance(distance)
+//                    }
+//                }
+//
+//                mapMarkersManager.showMarker(historyRecord.coordinate)
+            }
+
+            override fun onPopulateQueryClick(suggestion: SearchSuggestion, responseInfo: ResponseInfo) {
+                Log.i(MainMapActivity.TAG, "onPopulateQueryClick: $suggestion")
+//                if (::searchView.isInitialized) {
+//                    searchView.setQuery(suggestion.name, true)
+//                }
+            }
+
+            override fun onFeedbackItemClick(responseInfo: ResponseInfo) {
+                // Not implemented
+            }
+        })
+    }
+
+private fun showSearchHistory() {
+    val historyDataProvider = ServiceProvider.INSTANCE.historyDataProvider()
+
+    // Show `loading` item that indicates the progress of `search history` loading operation.
+    searchResultsView.setAdapterItems(listOf(SearchResultAdapterItem.Loading))
+
+    // Load `search history`
+    loadingTask = historyDataProvider.getAll(object : CompletionCallback<List<HistoryRecord>> {
+        override fun onComplete(result: List<HistoryRecord>) {
+            val viewItems = mutableListOf<SearchResultAdapterItem>().apply {
+                // Add `Recent searches` header
+                add(SearchResultAdapterItem.RecentSearchesHeader)
+
+                // Add history record items
+                addAll(result.map { history ->
+                    SearchResultAdapterItem.History(
+                        history,
+                        isFavorite = false
+                    )
+                })
+            }
+
+            // Show prepared items
+            searchResultsView.setAdapterItems(viewItems)
+        }
+
+        override fun onError(e: Exception) {
+            // Show error in case of failure
+            val errorItem = SearchResultAdapterItem.Error(UiError.createFromException(e))
+            searchResultsView.setAdapterItems(listOf(errorItem))
+        }
+    })
 }
 
 private fun onStyleLoaded(style: Style) {
@@ -661,7 +821,7 @@ private fun onMenuItem(item: MenuItem): Boolean {
         }
 
         R.id.location_details -> {
-            showLocationDetails()
+            showCrosshairDetails()
             true
         }
 
@@ -841,28 +1001,44 @@ private fun getFormattedDistance(distance: Double): String {
 
 private fun onSearchButton() {
     val sheet = BottomSheetBehavior.from(findViewById(R.id.geosearch))
-    if (sheet.state == BottomSheetBehavior.STATE_HALF_EXPANDED)
+    if (sheet.state == BottomSheetBehavior.STATE_EXPANDED) {
+        val imm = mapView.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(mapView.windowToken, 0)
         sheet.state = BottomSheetBehavior.STATE_HIDDEN
-    else sheet.state = BottomSheetBehavior.STATE_HALF_EXPANDED
+    }
+    else {
+        sheet.state = BottomSheetBehavior.STATE_EXPANDED
+        showSearchHistory()
+    }
+}
 
-//        geoSearch.resultTextView = findViewById(R.id.geosearchResults)
+    private fun closeSearchView() {
+        BottomSheetBehavior.from(findViewById(R.id.geosearch)).state = BottomSheetBehavior.STATE_HIDDEN
+    }
 
-    findViewById<TextInputEditText>(R.id.geosearchInput).addTextChangedListener {
+    private fun onSeachInputChanged() {
         val text = findViewById<TextInputEditText>(R.id.geosearchInput).text.toString()
-        if (text.length >= 3) {
-            geoSearch.search(
-                text,
-                map.cameraState.center
-            )
+        if (text.length >= 3 && BottomSheetBehavior.from(findViewById(R.id.geosearch)).state == BottomSheetBehavior.STATE_EXPANDED) {
+            doSearch(text)
         }
     }
 
-//        val bottomSheetDialog = BottomSheetDialog(this)
-//        bottomSheetDialog.setContentView(R.layout.geosearch_bottomsheet)
-//        bottomSheetDialog.show()
-//
-//        geoSearch.resultTextView = bottomSheetDialog.findViewById<TextView>(R.id.textView)
-}
+    private fun doSearch(query: String, center: Point = map.cameraState.center) {
+        Log.i(TAG, "Searching for $query")
+        searchEngineUiAdapter.search(
+            query,
+            SearchOptions(
+                limit = 5,
+                proximity = center,
+                countries = listOf(
+                    IsoCountryCode.GERMANY,
+                    IsoCountryCode.AUSTRIA,
+                    IsoCountryCode.SWITZERLAND
+                ),
+                languages = listOf(IsoLanguageCode.GERMAN)
+            )
+        )
+    }
 
 private fun showLocationDetails() {
 //        val permission = ContextCompat.checkSelfPermission(
