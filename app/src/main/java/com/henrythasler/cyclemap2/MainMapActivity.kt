@@ -66,6 +66,7 @@ import com.mapbox.search.result.SearchSuggestion
 import com.mapbox.search.ui.adapter.engines.SearchEngineUiAdapter
 import com.mapbox.search.ui.view.CommonSearchViewConfiguration
 import com.mapbox.search.ui.view.DistanceUnitType
+import com.mapbox.search.ui.view.SearchMode
 import com.mapbox.search.ui.view.SearchResultAdapterItem
 import com.mapbox.search.ui.view.SearchResultsView
 import com.mapbox.search.ui.view.UiError
@@ -269,6 +270,7 @@ class MainMapActivity : AppCompatActivity() {
             searchEngine = searchEngine,
             offlineSearchEngine = offlineSearchEngine,
         )
+        searchEngineUiAdapter.searchMode = SearchMode.AUTO
         initSearchEngineUiAdapter()
 //    showSearchHistory()
         findViewById<TextInputEditText>(R.id.geosearchInput).addTextChangedListener {
@@ -283,7 +285,19 @@ class MainMapActivity : AppCompatActivity() {
                 suggestions: List<SearchSuggestion>,
                 responseInfo: ResponseInfo
             ) {
+
+                Log.i(MainMapActivity.TAG, "onSuggestionsShown: $suggestions")
                 // Nothing to do
+//                val cameraPosition = map.cameraState.center
+//                suggestions.forEach { suggestion ->
+//
+//                    val points: MutableList<Point> = mutableListOf()
+//                    points.add(map.cameraState.center)
+//                    points.add(suggestion.requestOptions.options.proximity!!)
+////                    suggestion.requestOptions.options.proximity?.let { points.add(it) }
+//                    val distance = TurfMeasurement.length(LineString.fromLngLats(points), UNIT_METERS)
+//                    Log.i(MainMapActivity.TAG, "suggestion: ${suggestion.name} (${suggestion.requestOptions.options}) (${distance}m)")
+//                }
             }
 
             override fun onSearchResultsShown(
@@ -300,10 +314,12 @@ class MainMapActivity : AppCompatActivity() {
                 results: List<OfflineSearchResult>,
                 responseInfo: OfflineResponseInfo
             ) {
+                Log.i(MainMapActivity.TAG, "onOfflineSearchResultsShown: $results")
                 // Nothing to do
             }
 
             override fun onSuggestionSelected(searchSuggestion: SearchSuggestion): Boolean {
+                Log.i(MainMapActivity.TAG, "onSuggestionSelected: $searchSuggestion")
                 return false
             }
 
@@ -324,6 +340,7 @@ class MainMapActivity : AppCompatActivity() {
                 searchResult: OfflineSearchResult,
                 responseInfo: OfflineResponseInfo
             ) {
+                Log.i(MainMapActivity.TAG, "onOfflineSearchResultSelected: $searchResult")
 //                closeSearchView()
 //                searchPlaceView.open(SearchPlace.createFromOfflineSearchResult(searchResult))
 //                mapMarkersManager.showMarker(searchResult.coordinate)
@@ -359,8 +376,10 @@ class MainMapActivity : AppCompatActivity() {
 //                }
             }
 
+
             override fun onFeedbackItemClick(responseInfo: ResponseInfo) {
                 // Not implemented
+                Log.i(MainMapActivity.TAG, "onFeedbackItemClick: $responseInfo")
             }
         })
     }
@@ -377,7 +396,6 @@ class MainMapActivity : AppCompatActivity() {
                 val viewItems = mutableListOf<SearchResultAdapterItem>().apply {
                     // Add `Recent searches` header
                     add(SearchResultAdapterItem.RecentSearchesHeader)
-
                     // Add history record items
                     addAll(result.map { history ->
                         SearchResultAdapterItem.History(
