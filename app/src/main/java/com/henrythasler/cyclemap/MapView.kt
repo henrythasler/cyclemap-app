@@ -4,16 +4,18 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,15 +37,9 @@ import com.mapbox.maps.extension.compose.style.MapStyle
 
 @OptIn(MapboxExperimental::class)
 @Composable
-fun CyclemapView(styleUrl: String = stringResource(id = R.string.style_cyclemap_url)) {
-    val mapViewportState = rememberMapViewportState() {
-        setCameraOptions {
-            zoom(12.0)
-            center(Point.fromLngLat(10.85, 48.05))
-            pitch(0.0)
-            bearing(0.0)
-        }
-    }
+fun CycleMapView(viewModel: CycleMapViewModel) {
+    val styleUrl: String = stringResource(id = R.string.style_cyclemap_url)
+    val mapViewportState by viewModel.mapViewportState.collectAsState()
     val mapState = rememberMapState() {
         gesturesSettings = gesturesSettings.toBuilder()
             .setRotateEnabled(false)
@@ -53,6 +49,7 @@ fun CyclemapView(styleUrl: String = stringResource(id = R.string.style_cyclemap_
             .build()
     }
     var useCustomStyle by remember { mutableStateOf(true) }
+    var showCircleMenu by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -97,12 +94,28 @@ fun CyclemapView(styleUrl: String = stringResource(id = R.string.style_cyclemap_
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.Center
         ) {
-            SmallFloatingActionButton(
-                onClick = {
-                    useCustomStyle = !useCustomStyle
-                },
-            ) {
-                Icon(Icons.Filled.Home, "Small floating action button.")
+            Row() {
+                SmallFloatingActionButton(
+                    onClick = {
+                        showCircleMenu = !showCircleMenu
+                    },
+                ) {
+                    Icon(Icons.Filled.Menu, "Small floating action button.")
+                }
+                if (showCircleMenu) {
+                    SemiCircleButtons(
+                        buttons = listOf(
+                            "Button 1",
+                            "Button 2",
+                            "Button 3",
+                            "Button 4",
+                            "Button 5"
+                        ),
+                        radius = 128f,
+                        startAngle = -60f,
+                        endAngle = 60f
+                    )
+                }
             }
 
             SmallFloatingActionButton(
@@ -118,8 +131,9 @@ fun CyclemapView(styleUrl: String = stringResource(id = R.string.style_cyclemap_
                     useCustomStyle = !useCustomStyle
                 },
             ) {
-                Icon(Icons.Filled.Add, "Small floating action button.")
+                Icon(Icons.Filled.Search, "Small floating action button.")
             }
+
         }
     }
 }
