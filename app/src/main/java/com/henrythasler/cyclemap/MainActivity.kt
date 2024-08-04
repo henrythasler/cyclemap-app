@@ -12,28 +12,34 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.henrythasler.cyclemap.ui.theme.CyclemapAppTheme
+import com.mapbox.common.location.DeviceLocationProvider
+import com.mapbox.common.location.Location
+import com.mapbox.common.location.LocationObserver
+import com.mapbox.common.location.LocationServiceFactory
 import com.mapbox.geojson.Point
 import com.mapbox.maps.MapboxExperimental
-import com.mapbox.maps.extension.compose.animation.viewport.MapViewportState
 
 class MainActivity : ComponentActivity() {
     private lateinit var sharedState: SharedState
 
     private val timerHandler = Handler(Looper.getMainLooper())
     private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private lateinit var locationService: LocationService
+    private lateinit var customLocationService: LocationService
     private var locationServiceBound: Boolean = false
+
+    private val locationService: com.mapbox.common.location.LocationService =
+        LocationServiceFactory.getOrCreate()
+    private var locationProvider: DeviceLocationProvider? = null
 
     /** Defines callbacks for service binding, passed to bindService()  */
     private val locationServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
             // We've bound to LocalService, cast the IBinder and get LocalService instance
             val binder = service as LocationService.LocalBinder
-            locationService = binder.getService()
+            customLocationService = binder.getService()
             locationServiceBound = true
             Log.i(TAG, "onServiceConnected")
 
@@ -57,7 +63,8 @@ class MainActivity : ComponentActivity() {
             CyclemapAppTheme {
                 CycleMapView(
                     sharedState = sharedState,
-                    enableLocationService = ::enableLocationService
+                    enableLocationService = ::enableLocationService,
+                    disableLocationService = ::disableLocationService,
                 )
             }
         }
@@ -122,13 +129,23 @@ class MainActivity : ComponentActivity() {
     @OptIn(MapboxExperimental::class)
     private val timerRunnable: Runnable = object : Runnable {
         override fun run() {
-            if (locationService.locations.size > 0) {
-                Log.i(TAG, locationService.locations.last().toString())
+            if (customLocationService.locations.size > 0) {
+                Log.i(TAG, customLocationService.locations.last().toString())
             }
             timerHandler.postDelayed(
                 this,
                 resources.getInteger(R.integer.location_update_interval_ms).toLong()
             )
+        }
+    }
+
+    @OptIn(MapboxExperimental::class)
+    private val locationObserver = LocationObserver { locations ->
+        Log.i(TAG, "Location update received: $locations")
+        if (locations.size > 0) {
+            sharedState.mapViewportState.setCameraOptions {
+                center(Point.fromLngLat(locations.last().longitude, locations.last().latitude))
+            }
         }
     }
 
@@ -140,11 +157,20 @@ class MainActivity : ComponentActivity() {
                 bindService(intent, locationServiceConnection, Context.BIND_AUTO_CREATE)
             }
         }
+
+//        val result = locationService.getDeviceLocationProvider(null)
+//        if (result.isValue) {
+//            locationProvider = result.value!!
+//            locationProvider!!.addLocationObserver(locationObserver);
+//        } else {
+//            Log.e(TAG, "Failed to get device location provider")
+//        }
     }
 
     private fun disableLocationService() {
         /** stop the service when track recording is stopped */
         if (locationServiceBound) {
+            Log.i(TAG, "disabling LocationService")
             unbindService(locationServiceConnection)
             locationServiceBound = false
         }

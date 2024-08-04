@@ -19,7 +19,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
+import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.Style
 import com.mapbox.maps.extension.compose.MapEffect
@@ -43,12 +43,15 @@ import com.mapbox.maps.extension.compose.style.MapStyle
 import com.mapbox.maps.plugin.PuckBearing
 import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
+import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateBearing
+import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 
 @OptIn(MapboxExperimental::class)
 @Composable
 fun CycleMapView(
     sharedState: SharedState,
-    enableLocationService: () -> Unit
+    enableLocationService: () -> Unit,
+    disableLocationService: () -> Unit
 ) {
     val styleUrl: String = stringResource(id = R.string.style_cyclemap_url)
     val mapState = rememberMapState {
@@ -95,7 +98,7 @@ fun CycleMapView(
             },
         ) {
             // do stuff if needed
-            if(trackLocation) {
+            if (trackLocation) {
                 MapEffect(Unit) { mapView ->
                     mapView.location.updateSettings {
                         locationPuck = createDefault2DPuck(withBearing = true)
@@ -104,6 +107,10 @@ fun CycleMapView(
                         puckBearingEnabled = true
                         puckBearing = PuckBearing.HEADING
                     }
+//                    sharedState.mapViewportState.transitionToFollowPuckState(
+//                        followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
+//                            .bearing(null).padding(null).pitch(null).zoom(null).build()
+//                    )
                 }
             }
         }
@@ -171,6 +178,12 @@ fun CycleMapView(
                 SmallFloatingActionButton(
                     onClick = {
                         recordLocation = !recordLocation
+                        if(recordLocation) {
+                            enableLocationService()
+                        }
+                        else {
+                            disableLocationService()
+                        }
                     },
                 ) {
                     Icon(Icons.Filled.AddCircle, stringResource(R.string.button_record_desc))
@@ -192,7 +205,6 @@ fun CycleMapView(
                     showRequestPermissionButton = false
                     locationPermission = true
                     trackLocation = true
-                    enableLocationService()
                 }
             )
         }
