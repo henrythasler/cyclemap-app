@@ -1,3 +1,7 @@
 <resources>
-    <string name="app_name">Cyclemap3</string>
+    <string name="app_name">CycleMap3</string>
+    <string name="button_menu_desc">Show Main Menu</string>
+    <string name="button_location_desc">Start location tracking</string>
+    <string name="button_search_desc">Search for location or place</string>
+    <string name="button_record_desc">Record track</string>
 </resources>

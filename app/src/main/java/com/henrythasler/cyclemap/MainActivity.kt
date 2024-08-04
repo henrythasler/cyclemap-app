@@ -6,12 +6,21 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import com.henrythasler.cyclemap.ui.theme.CyclemapAppTheme
+import com.henrythasler.cyclemap.LocationService
 import com.mapbox.geojson.Point
 import com.mapbox.maps.MapboxExperimental
+import java.lang.ref.WeakReference
 
 class MainActivity : ComponentActivity() {
     private val viewModel: CycleMapViewModel by viewModels()
+
+    private lateinit var locationService: LocationService
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    private var locationServiceBound: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -22,6 +31,8 @@ class MainActivity : ComponentActivity() {
                 CycleMapView(viewModel)
             }
         }
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
     }
 
     @OptIn(MapboxExperimental::class)
