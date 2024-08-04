@@ -1,8 +1,5 @@
 package com.henrythasler.cyclemap
 
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -39,16 +36,22 @@ import androidx.compose.ui.unit.sp
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.Style
+import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
 import com.mapbox.maps.extension.compose.rememberMapState
 import com.mapbox.maps.extension.compose.style.MapStyle
+import com.mapbox.maps.plugin.PuckBearing
+import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
+import com.mapbox.maps.plugin.locationcomponent.location
 
 @OptIn(MapboxExperimental::class)
 @Composable
-fun CycleMapView(viewModel: CycleMapViewModel) {
+fun CycleMapView(
+    sharedState: SharedState,
+    enableLocationService: () -> Unit
+) {
     val styleUrl: String = stringResource(id = R.string.style_cyclemap_url)
-    val mapViewportState by viewModel.mapViewportState.collectAsState()
-    val mapState = rememberMapState() {
+    val mapState = rememberMapState {
         gesturesSettings = gesturesSettings.toBuilder()
             .setRotateEnabled(false)
             .setPitchEnabled(false)
@@ -71,7 +74,7 @@ fun CycleMapView(viewModel: CycleMapViewModel) {
     ) {
         MapboxMap(
             modifier = Modifier.fillMaxSize(),
-            mapViewportState = mapViewportState,
+            mapViewportState = sharedState.mapViewportState,
             mapState = mapState,
             style = {
                 if (useCustomStyle) {
@@ -92,6 +95,17 @@ fun CycleMapView(viewModel: CycleMapViewModel) {
             },
         ) {
             // do stuff if needed
+            if(trackLocation) {
+                MapEffect(Unit) { mapView ->
+                    mapView.location.updateSettings {
+                        locationPuck = createDefault2DPuck(withBearing = true)
+                        enabled = true
+                        showAccuracyRing = true
+                        puckBearingEnabled = true
+                        puckBearing = PuckBearing.HEADING
+                    }
+                }
+            }
         }
 
         Image(
@@ -109,7 +123,7 @@ fun CycleMapView(viewModel: CycleMapViewModel) {
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.Center
         ) {
-            Row() {
+            Row {
                 SmallFloatingActionButton(
                     onClick = {
                         showCircleMenu = !showCircleMenu
@@ -178,6 +192,7 @@ fun CycleMapView(viewModel: CycleMapViewModel) {
                     showRequestPermissionButton = false
                     locationPermission = true
                     trackLocation = true
+                    enableLocationService()
                 }
             )
         }

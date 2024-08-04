@@ -90,6 +90,7 @@ class LocationService : Service() {
             .setCategory(Notification.CATEGORY_SERVICE)
             .build()
         startForeground(ONGOING_NOTIFICATION_ID, notification)
+        Log.i(TAG, "Notification channel created.")
     }
 
     private fun requestLocationUpdates() {

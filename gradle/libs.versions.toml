@@ -1,6 +1,5 @@
 [versions]
 agp = "8.5.1"
-android = "11.5.1"
 maps = "11.5.1"
 kotlin = "1.9.0"
 coreKtx = "1.13.1"
@@ -14,7 +13,6 @@ mapsCompose = "11.5.1"
 playServicesLocation = "21.3.0"
 
 [libraries]
-android = { module = "com.mapbox.maps:android", version.ref = "android" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
@@ -29,7 +27,7 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
-maps-android = { module = "com.mapbox.maps:android", version.ref = "android" }
+maps-android = { module = "com.mapbox.maps:android", version.ref = "maps" }
 maps-compose = { module = "com.mapbox.extension:maps-compose", version.ref = "mapsCompose" }
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 
