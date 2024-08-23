@@ -2,6 +2,7 @@ package com.henrythasler.cyclemap
 
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import com.mapbox.geojson.Point
 import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.extension.compose.animation.viewport.MapViewportState
 
@@ -15,5 +16,19 @@ class SharedState {
         set(value) {
             _mapViewportState.value = value
         }
-    // Add other shared variables here
+
+    private val _distanceMeasurementPoints: MutableState<List<Point>> = mutableStateOf(listOf())
+    var distanceMeasurementPoints: List<Point>
+        get() = _distanceMeasurementPoints.value
+        set(value) {
+            _distanceMeasurementPoints.value = value
+        }
+
+    fun addPoint(point: Point) {
+        _distanceMeasurementPoints.value = _distanceMeasurementPoints.value + point
+    }
+
+    fun clearPoints() {
+        _distanceMeasurementPoints.value = listOf()
+    }
 }

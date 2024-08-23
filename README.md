@@ -6,24 +6,23 @@ An Android app for offline usage of vector-tiles
 ![Screen sample](docs/screenshot.png)
 
 
-## Refactor for Version 2
+## Refactor for Version 3
 
 ### Features
 
-- [x] Use latest mapbox SDK (10.x)
+- [x] Use latest mapbox SDK (11.x)
 - [x] Save/restore last camera position
-- [x] User location
-- [ ] Geosearch
-- [x] Crosshair
-- [x] map options (scale, hillshading, style select)
-- [x] Distance measurement
-- [x] Record/show track; 
-- [x] track statistics
-- [x] clear current track
-- [ ] Share map position
-- [x] Load/show route (GPX)
-- [ ] Inspect element
-- [ ] cache management (clear, invalidate)
+- [x] Show current location using Mapbox puck when location tracking is enabled
+- [x] Crosshair centered on map
+- [ ] Interactive polyline distance measurement when clicking the crosshair
+- [ ] Change map style (Cyclemap, Shadow, X-Ray, Mapbox, Satellite, ...)
+- [ ] Record current track; Show while recording
+- [ ] Show current speed while tracking
+- [ ] track statistics
+- [ ] clear current track
+- [ ] Load/show route (GPX)
+- [ ] Share map position (Link, Text)
+- [ ] Favorite locations (add, delete, fly-to)
 
 ## References
 
