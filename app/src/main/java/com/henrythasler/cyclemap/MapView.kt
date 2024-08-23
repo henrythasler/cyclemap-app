@@ -3,6 +3,7 @@ package com.henrythasler.cyclemap
 import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -91,6 +93,7 @@ fun CycleMapView(
     var showStyleCards by remember { mutableStateOf(false) }
     var permissionRequestCount by remember { mutableIntStateOf(1) }
     var showRequestPermissionButton by remember { mutableStateOf(false) }
+    var lastClick by remember { mutableLongStateOf(0L) }
 
     val context = LocalContext.current
 
@@ -168,20 +171,21 @@ fun CycleMapView(
             modifier = Modifier
                 .align(Alignment.Center)
                 .alpha(0.5f)
-                .combinedClickable(
-                    onClick = {
+                .clickable {
+                    // manual double-click evaluation since combinedClickable() introduces a delay for normal clicks
+                    if (System.currentTimeMillis() - lastClick <= 300L) {
+                        sharedState.clearPoints()
+                        distanceMeasurement = false
+                    } else {
                         distanceMeasurement = true
                         sharedState.mapViewportState.cameraState?.let {
                             sharedState.addPoint(it.center)
                         }
                         geoJsonSource.data =
                             GeoJSONData(LineString.fromLngLats(sharedState.distanceMeasurementPoints))
-                    },
-                    onDoubleClick = {
-                        sharedState.clearPoints()
-                        distanceMeasurement = false
                     }
-                ),
+                    lastClick = System.currentTimeMillis()
+                },
             painter = painterResource(id = R.drawable.my_location_48px),
             contentDescription = "",
         )
