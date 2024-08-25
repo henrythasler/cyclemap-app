@@ -70,6 +70,6 @@ dependencies {
 
     // mapbox
     implementation(libs.maps.android)
-    // If you're using compose also add the compose extension
     implementation(libs.maps.compose)
+    implementation(libs.mapbox.sdk.turf)
 }

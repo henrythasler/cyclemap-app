@@ -4,7 +4,6 @@ import android.util.Log
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +16,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -26,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,6 +88,7 @@ fun CycleMapView(
     var locationPermission by remember { mutableStateOf(false) }
 
     var distanceMeasurement by remember { mutableStateOf(false) }
+    var distance by remember { mutableDoubleStateOf(0.0) }
 
     var trackLocation by remember { mutableStateOf(false) }
     var recordLocation by remember { mutableStateOf(false) }
@@ -118,7 +122,7 @@ fun CycleMapView(
             scaleBar = {
                 ScaleBar(
                     Modifier.padding(bottom = 48.dp),
-                    alignment = Alignment.BottomStart,
+                    alignment = Alignment.BottomEnd,
                     height = 5.dp,
                     borderWidth = 1.dp,
                     isMetricUnit = true,
@@ -160,35 +164,52 @@ fun CycleMapView(
             if (distanceMeasurement) {
                 snapshotFlow { sharedState.mapViewportState.cameraState!!.center }
                     .collect { center ->
+                        // add current position temporarily to calculate the distance while dragging
                         val points = sharedState.distanceMeasurementPoints.toMutableList()
                         points.add(center)
+                        distance = measureDistance(points)
                         geoJsonSource.data = GeoJSONData(LineString.fromLngLats(points))
                     }
             }
         }
 
-        Image(
+        BadgedBox(
             modifier = Modifier
-                .align(Alignment.Center)
-                .alpha(0.5f)
-                .clickable {
-                    // manual double-click evaluation since combinedClickable() introduces a delay for normal clicks
-                    if (System.currentTimeMillis() - lastClick <= 300L) {
-                        sharedState.clearPoints()
-                        distanceMeasurement = false
-                    } else {
-                        distanceMeasurement = true
-                        sharedState.mapViewportState.cameraState?.let {
-                            sharedState.addPoint(it.center)
-                        }
-                        geoJsonSource.data =
-                            GeoJSONData(LineString.fromLngLats(sharedState.distanceMeasurementPoints))
+                .align(Alignment.Center),
+            badge = {
+                if (distanceMeasurement) {
+                    Badge(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    ) {
+                        DistanceBadge(distance)
                     }
-                    lastClick = System.currentTimeMillis()
-                },
-            painter = painterResource(id = R.drawable.my_location_48px),
-            contentDescription = "",
-        )
+                }
+            }
+        ) {
+            Image(
+                modifier = Modifier
+                    .alpha(0.5f)
+                    .clickable {
+                        // manual double-click evaluation since combinedClickable() introduces a delay for normal clicks
+                        if (System.currentTimeMillis() - lastClick <= 300L) {
+                            sharedState.clearPoints()
+                            distanceMeasurement = false
+                        } else {
+                            distanceMeasurement = true
+                            sharedState.mapViewportState.cameraState?.let {
+                                sharedState.addPoint(it.center)
+                            }
+                            distance = measureDistance(sharedState.distanceMeasurementPoints)
+                            geoJsonSource.data =
+                                GeoJSONData(LineString.fromLngLats(sharedState.distanceMeasurementPoints))
+                        }
+                        lastClick = System.currentTimeMillis()
+                    },
+                painter = painterResource(id = R.drawable.my_location_48px),
+                contentDescription = "Crosshair",
+            )
+        }
 
         val padding = 8.dp
         Column(
@@ -280,4 +301,14 @@ fun CycleMapView(
             StyleCards()
         }
     }
+}
+
+@Composable
+fun DistanceBadge(distance: Double) {
+    Text(
+        modifier = Modifier.padding(3.dp),
+        fontSize = 18.sp,
+        fontStyle = FontStyle.Italic,
+        text = getFormattedDistance(distance)
+    )
 }
