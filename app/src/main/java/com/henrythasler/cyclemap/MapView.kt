@@ -38,7 +38,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
@@ -47,8 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.geojson.LineString
-import com.mapbox.geojson.Point
 import com.mapbox.maps.MapboxExperimental
+import com.mapbox.maps.ScreenCoordinate
 import com.mapbox.maps.Style
 import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
@@ -101,9 +104,7 @@ fun CycleMapView(
 
     val context = LocalContext.current
 
-    val geoJsonSource: GeoJsonSourceState = rememberGeoJsonSourceState {
-        data = GeoJSONData(Point.fromLngLat(11.0, 48.0))
-    }
+    val geoJsonSource: GeoJsonSourceState = rememberGeoJsonSourceState {}
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -152,9 +153,9 @@ fun CycleMapView(
                     lineWidth = DoubleValue(7.0),
                     lineCap = LineCapValue.ROUND,
                     lineJoin = LineJoinValue.ROUND,
-                    lineColor = ColorValue(Color.Red),
+                    lineColor = ColorValue(colorResource(R.color.distanceMeasurementLine)),
                     lineBorderWidth = DoubleValue(1.0),
-                    lineBorderColor = ColorValue(Color.White),
+                    lineBorderColor = ColorValue(colorResource(R.color.distanceMeasurementLineCasing)),
                 )
             }
         }
@@ -179,7 +180,7 @@ fun CycleMapView(
             badge = {
                 if (distanceMeasurement) {
                     Badge(
-                        containerColor = Color.White,
+                        containerColor = colorResource(R.color.distanceMeasurementBadgeBackground),
                         contentColor = Color.Black
                     ) {
                         DistanceBadge(distance)
@@ -205,6 +206,15 @@ fun CycleMapView(
                                 GeoJSONData(LineString.fromLngLats(sharedState.distanceMeasurementPoints))
                         }
                         lastClick = System.currentTimeMillis()
+                    }
+                    .onGloballyPositioned { coordinates ->
+                        // This will give us the screen coordinates
+                        val screenPos = coordinates.boundsInWindow()
+                        Log.i(TAG, "Crosshair Center: $screenPos")
+                        mapState.gesturesSettings = mapState.gesturesSettings
+                            .toBuilder()
+                            .setFocalPoint(ScreenCoordinate(screenPos.center.x.toDouble(), screenPos.center.y.toDouble()))
+                            .build()
                     },
                 painter = painterResource(id = R.drawable.my_location_48px),
                 contentDescription = "Crosshair",

@@ -13,8 +13,8 @@ An Android app for offline usage of vector-tiles
 - [x] Use latest mapbox SDK (11.x)
 - [x] Save/restore last camera position
 - [x] Show current location using Mapbox puck when location tracking is enabled
-- [x] Crosshair centered on map
-- [ ] Interactive polyline distance measurement when clicking the crosshair
+- [x] Crosshair centered on map and zoom on crosshair center
+- [x] Interactive polyline distance measurement when clicking the crosshair
 - [ ] Change map style (Cyclemap, Shadow, X-Ray, Mapbox, Satellite, ...)
 - [ ] Record current track; Show while recording
 - [ ] Show current speed while tracking

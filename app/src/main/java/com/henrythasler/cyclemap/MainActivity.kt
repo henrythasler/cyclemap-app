@@ -16,7 +16,6 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.henrythasler.cyclemap.ui.theme.CyclemapAppTheme
 import com.mapbox.common.location.DeviceLocationProvider
-import com.mapbox.common.location.Location
 import com.mapbox.common.location.LocationObserver
 import com.mapbox.common.location.LocationServiceFactory
 import com.mapbox.geojson.Point
@@ -53,7 +52,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @OptIn(MapboxExperimental::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -76,7 +74,7 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
 
-        val zoom = sharedState.mapViewportState.cameraState?.zoom?.toFloat();
+        val zoom = sharedState.mapViewportState.cameraState?.zoom?.toFloat()
         val lon = sharedState.mapViewportState.cameraState?.center?.longitude()?.toFloat()
         val lat = sharedState.mapViewportState.cameraState?.center?.latitude()?.toFloat()
 
@@ -114,7 +112,7 @@ class MainActivity : ComponentActivity() {
 //        val lat = resources.getString(R.string.latitude_default).toDouble()
 
         Log.i(TAG, "Restored state: zoom=$zoom, lon=$lon, lat=$lat")
-        sharedState.mapViewportState.setCameraOptions() {
+        sharedState.mapViewportState.setCameraOptions {
             center(Point.fromLngLat(lon, lat))
             zoom(zoom)
             pitch(0.0)
@@ -126,7 +124,6 @@ class MainActivity : ComponentActivity() {
      * It's basically an event-loop-based timer callback that does something and triggers itself again if the
      * right conditions are met.
      */
-    @OptIn(MapboxExperimental::class)
     private val timerRunnable: Runnable = object : Runnable {
         override fun run() {
             if (customLocationService.locations.size > 0) {
@@ -177,6 +174,6 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        const val TAG: String = "CycleMap"
+        const val TAG: String = "Cyclemap"
     }
 }
