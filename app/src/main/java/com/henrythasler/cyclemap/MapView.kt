@@ -52,7 +52,6 @@ import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.geojson.LineString
 import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.ScreenCoordinate
-import com.mapbox.maps.Style
 import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
 import com.mapbox.maps.extension.compose.rememberMapState
@@ -76,7 +75,6 @@ fun CycleMapView(
     enableLocationService: () -> Unit,
     disableLocationService: () -> Unit
 ) {
-    val styleUrl: String = stringResource(id = R.string.style_cyclemap_url)
     val mapState = rememberMapState {
         gesturesSettings = gesturesSettings.toBuilder()
             .setRotateEnabled(false)
@@ -86,6 +84,8 @@ fun CycleMapView(
             .build()
     }
 //    val mapViewportState = remember { sharedState.mapViewportState }
+//    val styleUrl: String = stringResource(id = R.string.style_cyclemap_url)
+    var styleUrl by remember { mutableStateOf<String>("https://www.cyclemap.link/cyclemap-style.json") }
 
     var requestLocationTracking by remember { mutableStateOf(false) }
     var locationPermission by remember { mutableStateOf(false) }
@@ -97,7 +97,7 @@ fun CycleMapView(
     var recordLocation by remember { mutableStateOf(false) }
     var useCustomStyle by remember { mutableStateOf(true) }
     var showMainMenu by remember { mutableStateOf(false) }
-    var showStyleCards by remember { mutableStateOf(false) }
+    var showStyleSelection by remember { mutableStateOf(false) }
     var permissionRequestCount by remember { mutableIntStateOf(1) }
     var showRequestPermissionButton by remember { mutableStateOf(false) }
     var lastClick by remember { mutableLongStateOf(0L) }
@@ -105,6 +105,7 @@ fun CycleMapView(
     val context = LocalContext.current
 
     val geoJsonSource: GeoJsonSourceState = rememberGeoJsonSourceState {}
+    val styleDefinitions: List<StyleDefinition> = parseStyleDefinitions(context)
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -114,11 +115,7 @@ fun CycleMapView(
             mapViewportState = sharedState.mapViewportState,
             mapState = mapState,
             style = {
-                if (useCustomStyle) {
                     MapStyle(style = styleUrl)
-                } else {
-                    MapStyle(style = Style.STANDARD)
-                }
             },
             scaleBar = {
                 ScaleBar(
@@ -174,6 +171,7 @@ fun CycleMapView(
             }
         }
 
+        // Crosshair and Distance Measurement
         BadgedBox(
             modifier = Modifier
                 .align(Alignment.Center),
@@ -213,7 +211,12 @@ fun CycleMapView(
                         Log.i(TAG, "Crosshair Center: $screenPos")
                         mapState.gesturesSettings = mapState.gesturesSettings
                             .toBuilder()
-                            .setFocalPoint(ScreenCoordinate(screenPos.center.x.toDouble(), screenPos.center.y.toDouble()))
+                            .setFocalPoint(
+                                ScreenCoordinate(
+                                    screenPos.center.x.toDouble(),
+                                    screenPos.center.y.toDouble()
+                                )
+                            )
                             .build()
                     },
                 painter = painterResource(id = R.drawable.my_location_48px),
@@ -221,6 +224,7 @@ fun CycleMapView(
             )
         }
 
+        // Menu
         val padding = 8.dp
         Column(
             modifier = Modifier
@@ -236,8 +240,7 @@ fun CycleMapView(
                 ) {
                     Icon(Icons.Filled.Menu, stringResource(R.string.button_menu_desc))
                 }
-                // Create a drop-down menu with list of cities,
-                // when clicked, set the Text Field text as the city selected
+
                 DropdownMenu(
                     expanded = showMainMenu,
                     offset = DpOffset(48.dp, 0.dp),
@@ -249,7 +252,7 @@ fun CycleMapView(
                         },
                         onClick = {
                             showMainMenu = false
-                            showStyleCards = true
+                            showStyleSelection = true
                         },
                         leadingIcon = {
                             Icon(Icons.Filled.CheckCircle, stringResource(R.string.menu_map_style))
@@ -307,8 +310,23 @@ fun CycleMapView(
             }
         }
 
-        if (showStyleCards) {
-            StyleCards()
+        if (showStyleSelection) {
+//            StyleCards(styleDefinitions)
+            StyleSelectionSheet(
+                onDismiss = {
+                    showStyleSelection = false
+                },
+                styleDefinitions = styleDefinitions
+            )
+            { styleDefinition ->
+                Log.i(TAG, "selected $styleDefinition")
+
+                styleDefinition.styleUrl?.let { styleUrl = it }
+                styleDefinition.styleId?.let { styleId ->
+                    mapboxStyleIdMapping[styleId]?.let { styleUrl = it }
+                }
+                showStyleSelection = false
+            }
         }
     }
 }

@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         sharedState = SharedState()
         restoreSettings()
+
         setContent {
             CyclemapAppTheme {
                 CycleMapView(

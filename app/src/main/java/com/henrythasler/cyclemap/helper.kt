@@ -1,7 +1,11 @@
 package com.henrythasler.cyclemap
 
+import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
+import com.mapbox.maps.Style
 import com.mapbox.turf.TurfConstants
 import com.mapbox.turf.TurfMeasurement
 import java.text.DecimalFormat
@@ -20,3 +24,24 @@ fun measureDistance(lineString: List<Point>): Double {
         TurfConstants.UNIT_METERS
     )
 }
+
+data class StyleDefinition(
+    val styleName: String,
+    val styleUrl: String? = null,
+    val styleId: String? = null,
+ )
+
+fun parseStyleDefinitions(context: Context): List<StyleDefinition> {
+    val inputStream = context.resources.openRawResource(R.raw.styles)
+    val jsonString = inputStream.bufferedReader().use { it.readText() }
+    return Gson().fromJson(jsonString, object : TypeToken<List<StyleDefinition>>() {}.type)
+}
+
+val mapboxStyleIdMapping = mapOf(
+    "STANDARD" to Style.STANDARD,
+    "OUTDOORS" to Style.OUTDOORS,
+    "SATELLITE" to Style.SATELLITE,
+    "MAPBOX_STREETS" to Style.MAPBOX_STREETS,
+    "TRAFFIC_DAY" to Style.TRAFFIC_DAY,
+
+)

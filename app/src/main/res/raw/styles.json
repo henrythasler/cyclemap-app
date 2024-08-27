@@ -1,0 +1,30 @@
+[
+  {
+    "styleName": "CycleMap",
+    "styleUrl": "https://www.cyclemap.link/cyclemap-style.json"
+  },
+  {
+    "styleName": "Shadow",
+    "styleUrl": "https://www.cyclemap.link/shadow-style.json"
+  },
+  {
+    "styleName": "X-Ray",
+    "styleUrl": "https://www.cyclemap.link/xray-style.json"
+  },
+  {
+    "styleName": "Mapbox Standard",
+    "styleId": "STANDARD"
+  },
+  {
+    "styleName": "Mapbox Outdoors",
+    "styleId": "OUTDOORS"
+  },
+  {
+    "styleName": "Mapbox Satellite",
+    "styleId": "SATELLITE"
+  },
+  {
+    "styleName": "Mapbox Traffic",
+    "styleId": "TRAFFIC_DAY"
+  }
+]
