@@ -86,6 +86,7 @@ fun CycleMapView(
 //    val mapViewportState = remember { sharedState.mapViewportState }
 //    val styleUrl: String = stringResource(id = R.string.style_cyclemap_url)
     var styleUrl by remember { mutableStateOf<String>("https://www.cyclemap.link/cyclemap-style.json") }
+    var currentStyleId by remember { mutableStateOf<String>("cyclemap") }
 
     var requestLocationTracking by remember { mutableStateOf(false) }
     var locationPermission by remember { mutableStateOf(false) }
@@ -316,14 +317,17 @@ fun CycleMapView(
                 onDismiss = {
                     showStyleSelection = false
                 },
-                styleDefinitions = styleDefinitions
+                styleDefinitions = styleDefinitions,
+                currentStyle = currentStyleId
             )
             { styleDefinition ->
                 Log.i(TAG, "selected $styleDefinition")
-
-                styleDefinition.styleUrl?.let { styleUrl = it }
-                styleDefinition.styleId?.let { styleId ->
-                    mapboxStyleIdMapping[styleId]?.let { styleUrl = it }
+                currentStyleId = styleDefinition.styleId
+                if(styleDefinition.styleSource.startsWith("http") ) {
+                    styleUrl = styleDefinition.styleSource
+                }
+                else {
+                    mapboxStyleIdMapping[styleDefinition.styleSource]?.let { styleUrl = it }
                 }
                 showStyleSelection = false
             }

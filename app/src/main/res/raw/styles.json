@@ -1,30 +1,37 @@
 [
   {
     "styleName": "CycleMap",
-    "styleUrl": "https://www.cyclemap.link/cyclemap-style.json"
+    "styleId": "cyclemap",
+    "styleSource": "https://www.cyclemap.link/cyclemap-style.json"
   },
   {
     "styleName": "Shadow",
-    "styleUrl": "https://www.cyclemap.link/shadow-style.json"
+    "styleId": "shadow",
+    "styleSource": "https://www.cyclemap.link/shadow-style.json"
   },
   {
     "styleName": "X-Ray",
-    "styleUrl": "https://www.cyclemap.link/xray-style.json"
+    "styleId": "xray",
+    "styleSource": "https://www.cyclemap.link/xray-style.json"
   },
   {
     "styleName": "Mapbox Standard",
-    "styleId": "STANDARD"
+    "styleId": "mapbox_standard",
+    "styleSource": "STANDARD"
   },
   {
     "styleName": "Mapbox Outdoors",
-    "styleId": "OUTDOORS"
+    "styleId": "mapbox_outdoors",
+    "styleSource": "OUTDOORS"
   },
   {
     "styleName": "Mapbox Satellite",
-    "styleId": "SATELLITE"
+    "styleId": "mapbox_satellite",
+    "styleSource": "SATELLITE"
   },
   {
     "styleName": "Mapbox Traffic",
-    "styleId": "TRAFFIC_DAY"
+    "styleId": "mapbox_traffic",
+    "styleSource": "TRAFFIC_DAY"
   }
 ]

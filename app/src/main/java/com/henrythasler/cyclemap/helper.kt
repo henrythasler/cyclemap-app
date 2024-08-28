@@ -27,8 +27,8 @@ fun measureDistance(lineString: List<Point>): Double {
 
 data class StyleDefinition(
     val styleName: String,
-    val styleUrl: String? = null,
-    val styleId: String? = null,
+    val styleId: String,
+    val styleSource: String,
  )
 
 fun parseStyleDefinitions(context: Context): List<StyleDefinition> {
