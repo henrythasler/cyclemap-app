@@ -9,5 +9,7 @@
     <color name="white">#FFFFFFFF</color>
     <color name="distanceMeasurementLine">#F44336</color>
     <color name="distanceMeasurementLineCasing">#F6F4E7</color>
+    <color name="routeLine">#F44336</color>
+    <color name="routeLineCasing">#F6F4E7</color>
     <color name="distanceMeasurementBadgeBackground">#BFF6F4E7</color>
 </resources>

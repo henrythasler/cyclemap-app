@@ -12,6 +12,7 @@ composeBom = "2024.06.00"
 mapsCompose = "11.5.1"
 playServicesLocation = "21.3.0"
 mapboxSdkTurf = "5.9.0-alpha.1"
+simpleXml = "2.7.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -32,6 +33,7 @@ maps-android = { module = "com.mapbox.maps:android", version.ref = "maps" }
 maps-compose = { module = "com.mapbox.extension:maps-compose", version.ref = "mapsCompose" }
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 mapbox-sdk-turf = { group = "com.mapbox.mapboxsdk", name = "mapbox-sdk-turf", version.ref = "mapboxSdkTurf" }
+simple-xml = { group = "org.simpleframework", name = "simple-xml", version.ref = "simpleXml" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -1,6 +1,9 @@
 package com.henrythasler.cyclemap
 
+import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
@@ -50,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.geojson.LineString
+import com.mapbox.geojson.Point
 import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.ScreenCoordinate
 import com.mapbox.maps.extension.compose.MapEffect
@@ -94,6 +99,7 @@ fun CycleMapView(
     var distanceMeasurement by remember { mutableStateOf(false) }
     var distance by remember { mutableDoubleStateOf(0.0) }
 
+    var showRoute by remember { mutableStateOf(false) }
     var trackLocation by remember { mutableStateOf(false) }
     var recordLocation by remember { mutableStateOf(false) }
     var useCustomStyle by remember { mutableStateOf(true) }
@@ -105,8 +111,18 @@ fun CycleMapView(
 
     val context = LocalContext.current
 
-    val geoJsonSource: GeoJsonSourceState = rememberGeoJsonSourceState {}
+    val distanceMeasurementLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
+    val routeLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
     val styleDefinitions: List<StyleDefinition> = parseStyleDefinitions(context)
+
+    // File handline
+    var selectedUri by remember { mutableStateOf<Uri?>(null) }
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        selectedUri = uri
+        Log.i(TAG, "selected file: ${uri?.path}")
+    }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -147,13 +163,25 @@ fun CycleMapView(
             }
             if (distanceMeasurement) {
                 LineLayer(
-                    sourceState = geoJsonSource,
+                    sourceState = distanceMeasurementLayer,
                     lineWidth = DoubleValue(7.0),
                     lineCap = LineCapValue.ROUND,
                     lineJoin = LineJoinValue.ROUND,
                     lineColor = ColorValue(colorResource(R.color.distanceMeasurementLine)),
                     lineBorderWidth = DoubleValue(1.0),
                     lineBorderColor = ColorValue(colorResource(R.color.distanceMeasurementLineCasing)),
+                )
+            }
+            if (showRoute) {
+                LineLayer(
+                    sourceState = routeLayer,
+                    lineWidth = DoubleValue(11.0),
+                    lineOpacity = DoubleValue(0.75),
+                    lineCap = LineCapValue.ROUND,
+                    lineJoin = LineJoinValue.ROUND,
+                    lineColor = ColorValue(colorResource(R.color.routeLine)),
+                    lineBorderWidth = DoubleValue(1.0),
+                    lineBorderColor = ColorValue(colorResource(R.color.routeLineCasing)),
                 )
             }
         }
@@ -167,7 +195,7 @@ fun CycleMapView(
                         val points = sharedState.distanceMeasurementPoints.toMutableList()
                         points.add(center)
                         distance = measureDistance(points)
-                        geoJsonSource.data = GeoJSONData(LineString.fromLngLats(points))
+                        distanceMeasurementLayer.data = GeoJSONData(LineString.fromLngLats(points))
                     }
             }
         }
@@ -201,7 +229,7 @@ fun CycleMapView(
                                 sharedState.addPoint(it.center)
                             }
                             distance = measureDistance(sharedState.distanceMeasurementPoints)
-                            geoJsonSource.data =
+                            distanceMeasurementLayer.data =
                                 GeoJSONData(LineString.fromLngLats(sharedState.distanceMeasurementPoints))
                         }
                         lastClick = System.currentTimeMillis()
@@ -257,7 +285,20 @@ fun CycleMapView(
                         },
                         leadingIcon = {
                             Icon(Icons.Filled.CheckCircle, stringResource(R.string.menu_map_style))
-                        })
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(text = stringResource(R.string.menu_gpx_load))
+                        },
+                        onClick = {
+                            showMainMenu = false
+                            launcher.launch("*/*")
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Filled.AddCircle, stringResource(R.string.menu_gpx_load))
+                        }
+                    )
                 }
             }
 
@@ -330,6 +371,26 @@ fun CycleMapView(
                     mapboxStyleIdMapping[styleDefinition.styleSource]?.let { styleUrl = it }
                 }
                 showStyleSelection = false
+            }
+        }
+    }
+
+    selectedUri?.let { uri ->
+        ReadSelectedGpx(uri) { gpx ->
+            // Now you can work with the GPX data
+            val route: MutableList<Point> = mutableListOf()
+
+            gpx.track?.segments?.forEach { segment ->
+                segment.trackPoints?.forEach { point ->
+                    route.add(Point.fromLngLat(point.longitude, point.latitude, ))
+//                    Log.i(TAG, "Lat: ${point.latitude}, Lon: ${point.longitude}")
+                }
+            }
+
+            if(route.size > 1) {
+                routeLayer.data =
+                    GeoJSONData(LineString.fromLngLats(route))
+                showRoute = true
             }
         }
     }
