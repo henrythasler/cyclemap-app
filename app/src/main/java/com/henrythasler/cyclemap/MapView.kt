@@ -1,5 +1,7 @@
 package com.henrythasler.cyclemap
 
+import android.app.Activity.MODE_PRIVATE
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -293,6 +295,9 @@ fun CycleMapView(
                         },
                         onClick = {
                             showMainMenu = false
+
+                            context.getSharedPreferences("FILE_PICKER", Context.MODE_PRIVATE)
+
                             launcher.launch("*/*")
                         },
                         leadingIcon = {
