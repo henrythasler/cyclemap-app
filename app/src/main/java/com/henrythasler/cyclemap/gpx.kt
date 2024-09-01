@@ -2,6 +2,7 @@ package com.henrythasler.cyclemap
 
 import android.net.Uri
 import android.util.Log
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
@@ -68,10 +69,14 @@ fun ReadSelectedGpx(uri: Uri, onLoaded: (Gpx) -> Unit) {
     val context = LocalContext.current
 
     LaunchedEffect(uri) {
-        context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            val serializer = Persister()
-            val gpx = serializer.read(Gpx::class.java, inputStream)
-            onLoaded(gpx)
+        try {
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                val serializer = Persister()
+                val gpx = serializer.read(Gpx::class.java, inputStream)
+                onLoaded(gpx)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading GPX file $uri: $e")
         }
     }
 }

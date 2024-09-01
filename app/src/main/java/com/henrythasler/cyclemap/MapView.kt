@@ -1,7 +1,5 @@
 package com.henrythasler.cyclemap
 
-import android.app.Activity.MODE_PRIVATE
-import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -44,13 +42,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,20 +75,20 @@ import com.mapbox.maps.extension.compose.style.sources.generated.rememberGeoJson
 import com.mapbox.maps.plugin.PuckBearing
 import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
+import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 
 @OptIn(MapboxExperimental::class, ExperimentalFoundationApi::class)
 @Composable
+@Preview
 fun CycleMapView(
-    sharedState: SharedState,
-    enableLocationService: () -> Unit,
-    disableLocationService: () -> Unit
+    sharedState: SharedState = SharedState(),
+    enableLocationService: () -> Unit = {},
+    disableLocationService: () -> Unit = {}
 ) {
     val mapState = rememberMapState {
         gesturesSettings = gesturesSettings.toBuilder()
             .setRotateEnabled(false)
             .setPitchEnabled(false)
-//            .setFocalPoint(ScreenCoordinate(100.0, 200.0))
-//            .focalPoint(pixelForCoordinate(mapViewportState.cameraState?.center))
             .build()
     }
 //    val mapViewportState = remember { sharedState.mapViewportState }
@@ -103,8 +104,8 @@ fun CycleMapView(
 
     var showRoute by remember { mutableStateOf(false) }
     var trackLocation by remember { mutableStateOf(false) }
+    var followLocation by remember { mutableStateOf(false) }
     var recordLocation by remember { mutableStateOf(false) }
-    var useCustomStyle by remember { mutableStateOf(true) }
     var showMainMenu by remember { mutableStateOf(false) }
     var showStyleSelection by remember { mutableStateOf(false) }
     var permissionRequestCount by remember { mutableIntStateOf(1) }
@@ -122,69 +123,83 @@ fun CycleMapView(
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        selectedUri = uri
-        Log.i(TAG, "selected file: ${uri?.path}")
+        uri?.let {
+            selectedUri = it
+            Log.i(TAG, "selected file: ${it.path}")
+        }
     }
 
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        MapboxMap(
-            modifier = Modifier.fillMaxSize(),
-            mapViewportState = sharedState.mapViewportState,
-            mapState = mapState,
-            style = {
+        if (LocalInspectionMode.current) {
+            Image(
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds,
+                painter = painterResource(id = R.drawable.map_preview),
+                contentDescription = ""
+            )
+        } else {
+            MapboxMap(
+                modifier = Modifier.fillMaxSize(),
+                mapViewportState = sharedState.mapViewportState,
+                mapState = mapState,
+                style = {
                     MapStyle(style = styleUrl)
-            },
-            scaleBar = {
-                ScaleBar(
-                    Modifier.padding(bottom = 48.dp),
-                    alignment = Alignment.BottomEnd,
-                    height = 5.dp,
-                    borderWidth = 1.dp,
-                    isMetricUnit = true,
-                    textSize = 14.sp,
-                )
-            },
-        ) {
-            // do stuff if needed
-            if (trackLocation) {
-                MapEffect(Unit) { mapView ->
+                },
+                scaleBar = {
+                    ScaleBar(
+                        Modifier.padding(bottom = 48.dp),
+                        alignment = Alignment.BottomEnd,
+                        height = 5.dp,
+                        borderWidth = 1.dp,
+                        isMetricUnit = true,
+                        textSize = 14.sp,
+                    )
+                },
+            ) {
+                MapEffect(key1 = trackLocation, Unit) { mapView ->
                     mapView.location.updateSettings {
                         locationPuck = createDefault2DPuck(withBearing = true)
-                        enabled = true
+                        enabled = trackLocation
                         showAccuracyRing = true
                         puckBearingEnabled = true
                         puckBearing = PuckBearing.HEADING
                     }
-//                    sharedState.mapViewportState.transitionToFollowPuckState(
-//                        followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
-//                            .bearing(null).padding(null).pitch(null).zoom(null).build()
-//                    )
+
+                    if (trackLocation) {
+                        sharedState.mapViewportState.transitionToFollowPuckState(
+                            followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
+                                .bearing(null).padding(null).pitch(null).zoom(null).build()
+                        )
+                    } else {
+                        sharedState.mapViewportState.idle()
+                    }
                 }
-            }
-            if (distanceMeasurement) {
-                LineLayer(
-                    sourceState = distanceMeasurementLayer,
-                    lineWidth = DoubleValue(7.0),
-                    lineCap = LineCapValue.ROUND,
-                    lineJoin = LineJoinValue.ROUND,
-                    lineColor = ColorValue(colorResource(R.color.distanceMeasurementLine)),
-                    lineBorderWidth = DoubleValue(1.0),
-                    lineBorderColor = ColorValue(colorResource(R.color.distanceMeasurementLineCasing)),
-                )
-            }
-            if (showRoute) {
-                LineLayer(
-                    sourceState = routeLayer,
-                    lineWidth = DoubleValue(11.0),
-                    lineOpacity = DoubleValue(0.75),
-                    lineCap = LineCapValue.ROUND,
-                    lineJoin = LineJoinValue.ROUND,
-                    lineColor = ColorValue(colorResource(R.color.routeLine)),
-                    lineBorderWidth = DoubleValue(1.0),
-                    lineBorderColor = ColorValue(colorResource(R.color.routeLineCasing)),
-                )
+
+                if (distanceMeasurement) {
+                    LineLayer(
+                        sourceState = distanceMeasurementLayer,
+                        lineWidth = DoubleValue(7.0),
+                        lineCap = LineCapValue.ROUND,
+                        lineJoin = LineJoinValue.ROUND,
+                        lineColor = ColorValue(colorResource(R.color.distanceMeasurementLine)),
+                        lineBorderWidth = DoubleValue(1.0),
+                        lineBorderColor = ColorValue(colorResource(R.color.distanceMeasurementLineCasing)),
+                    )
+                }
+                if (showRoute) {
+                    LineLayer(
+                        sourceState = routeLayer,
+                        lineWidth = DoubleValue(11.0),
+                        lineOpacity = DoubleValue(0.75),
+                        lineCap = LineCapValue.ROUND,
+                        lineJoin = LineJoinValue.ROUND,
+                        lineColor = ColorValue(colorResource(R.color.routeLine)),
+                        lineBorderWidth = DoubleValue(1.0),
+                        lineBorderColor = ColorValue(colorResource(R.color.routeLineCasing)),
+                    )
+                }
             }
         }
 
@@ -286,7 +301,10 @@ fun CycleMapView(
                             showStyleSelection = true
                         },
                         leadingIcon = {
-                            Icon(Icons.Filled.CheckCircle, stringResource(R.string.menu_map_style))
+                            Icon(
+                                painterResource(id = R.drawable.baseline_map_24),
+                                stringResource(R.string.menu_map_style)
+                            )
                         }
                     )
                     DropdownMenuItem(
@@ -295,13 +313,13 @@ fun CycleMapView(
                         },
                         onClick = {
                             showMainMenu = false
-
-                            context.getSharedPreferences("FILE_PICKER", Context.MODE_PRIVATE)
-
                             launcher.launch("*/*")
                         },
                         leadingIcon = {
-                            Icon(Icons.Filled.AddCircle, stringResource(R.string.menu_gpx_load))
+                            Icon(
+                                painterResource(id = R.drawable.baseline_directions_24),
+                                stringResource(R.string.menu_gpx_load)
+                            )
                         }
                     )
                 }
@@ -321,10 +339,28 @@ fun CycleMapView(
 
             SmallFloatingActionButton(
                 onClick = {
-                    useCustomStyle = !useCustomStyle
                 },
             ) {
                 Icon(Icons.Filled.Search, stringResource(R.string.button_search_desc))
+            }
+
+            if (trackLocation) {
+                SmallFloatingActionButton(
+                    onClick = {
+                        recordLocation = !recordLocation
+                        if (recordLocation) {
+                            enableLocationService()
+                        } else {
+                            disableLocationService()
+                        }
+                    },
+                ) {
+                    Icon(
+                        tint = if (recordLocation) Color.Red else Color.Unspecified,
+                        painter = painterResource(id = R.drawable.baseline_fiber_manual_record_24),
+                        contentDescription = stringResource(R.string.button_record_desc)
+                    )
+                }
             }
         }
 
@@ -369,10 +405,9 @@ fun CycleMapView(
             { styleDefinition ->
                 Log.i(TAG, "selected $styleDefinition")
                 currentStyleId = styleDefinition.styleId
-                if(styleDefinition.styleSource.startsWith("http") ) {
+                if (styleDefinition.styleSource.startsWith("http")) {
                     styleUrl = styleDefinition.styleSource
-                }
-                else {
+                } else {
                     mapboxStyleIdMapping[styleDefinition.styleSource]?.let { styleUrl = it }
                 }
                 showStyleSelection = false
@@ -387,12 +422,11 @@ fun CycleMapView(
 
             gpx.track?.segments?.forEach { segment ->
                 segment.trackPoints?.forEach { point ->
-                    route.add(Point.fromLngLat(point.longitude, point.latitude, ))
-//                    Log.i(TAG, "Lat: ${point.latitude}, Lon: ${point.longitude}")
+                    route.add(Point.fromLngLat(point.longitude, point.latitude))
                 }
             }
 
-            if(route.size > 1) {
+            if (route.size > 1) {
                 routeLayer.data =
                     GeoJSONData(LineString.fromLngLats(route))
                 showRoute = true

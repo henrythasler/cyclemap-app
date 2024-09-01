@@ -130,10 +130,13 @@ class MainActivity : ComponentActivity() {
             if (customLocationService.locations.size > 0) {
                 Log.i(TAG, customLocationService.locations.last().toString())
             }
-            timerHandler.postDelayed(
-                this,
-                resources.getInteger(R.integer.location_update_interval_ms).toLong()
-            )
+
+            if(locationServiceBound) {
+                timerHandler.postDelayed(
+                    this,
+                    resources.getInteger(R.integer.location_update_interval_ms).toLong()
+                )
+            }
         }
     }
 

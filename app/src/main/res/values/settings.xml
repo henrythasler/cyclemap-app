@@ -7,6 +7,7 @@
     <item name="longitude_default" type="string">10.85</item>
     <item name="latitude_name" type="string">latitude</item>
     <item name="latitude_default" type="string">48.05</item>
+    <item name="storage_path_name" type="string">storage_path</item>
 
 <!-- Location Service Configuration -->
     <item name="location_update_interval_ms" type="integer">1000</item>
