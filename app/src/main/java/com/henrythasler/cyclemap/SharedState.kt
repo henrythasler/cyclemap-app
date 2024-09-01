@@ -16,7 +16,7 @@ class SharedState {
         set(value) {
             _mapViewportState.value = value
         }
-
+/*
     private val _distanceMeasurementPoints: MutableState<List<Point>> = mutableStateOf(listOf())
     var distanceMeasurementPoints: List<Point>
         get() = _distanceMeasurementPoints.value
@@ -31,4 +31,5 @@ class SharedState {
     fun clearPoints() {
         _distanceMeasurementPoints.value = listOf()
     }
+ */
 }

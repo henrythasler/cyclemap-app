@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
@@ -30,6 +28,7 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
+import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.ScreenCoordinate
 import com.mapbox.maps.extension.compose.MapEffect
@@ -76,6 +76,7 @@ import com.mapbox.maps.plugin.PuckBearing
 import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
+import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
 
 @OptIn(MapboxExperimental::class, ExperimentalFoundationApi::class)
 @Composable
@@ -99,6 +100,7 @@ fun CycleMapView(
     var requestLocationTracking by remember { mutableStateOf(false) }
     var locationPermission by remember { mutableStateOf(false) }
 
+    var distanceMeasurementPoints by remember { mutableStateOf(listOf<Point>()) }
     var distanceMeasurement by remember { mutableStateOf(false) }
     var distance by remember { mutableDoubleStateOf(0.0) }
 
@@ -116,6 +118,7 @@ fun CycleMapView(
 
     val distanceMeasurementLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
     val routeLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
+    val trackLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
     val styleDefinitions: List<StyleDefinition> = parseStyleDefinitions(context)
 
     // File handline
@@ -200,6 +203,18 @@ fun CycleMapView(
                         lineBorderColor = ColorValue(colorResource(R.color.routeLineCasing)),
                     )
                 }
+                if (recordLocation) {
+                    LineLayer(
+                        sourceState = trackLayer,
+                        lineWidth = DoubleValue(11.0),
+                        lineOpacity = DoubleValue(0.75),
+                        lineCap = LineCapValue.ROUND,
+                        lineJoin = LineJoinValue.ROUND,
+                        lineColor = ColorValue(colorResource(R.color.trackLine)),
+                        lineBorderWidth = DoubleValue(1.0),
+                        lineBorderColor = ColorValue(colorResource(R.color.trackLineCasing)),
+                    )
+                }
             }
         }
 
@@ -209,7 +224,7 @@ fun CycleMapView(
                 snapshotFlow { sharedState.mapViewportState.cameraState!!.center }
                     .collect { center ->
                         // add current position temporarily to calculate the distance while dragging
-                        val points = sharedState.distanceMeasurementPoints.toMutableList()
+                        val points = distanceMeasurementPoints.toMutableList()
                         points.add(center)
                         distance = measureDistance(points)
                         distanceMeasurementLayer.data = GeoJSONData(LineString.fromLngLats(points))
@@ -238,16 +253,16 @@ fun CycleMapView(
                     .clickable {
                         // manual double-click evaluation since combinedClickable() introduces a delay for normal clicks
                         if (System.currentTimeMillis() - lastClick <= 300L) {
-                            sharedState.clearPoints()
+                            distanceMeasurementPoints = listOf()
                             distanceMeasurement = false
                         } else {
                             distanceMeasurement = true
                             sharedState.mapViewportState.cameraState?.let {
-                                sharedState.addPoint(it.center)
+                                distanceMeasurementPoints = distanceMeasurementPoints + it.center
                             }
-                            distance = measureDistance(sharedState.distanceMeasurementPoints)
+                            distance = measureDistance(distanceMeasurementPoints)
                             distanceMeasurementLayer.data =
-                                GeoJSONData(LineString.fromLngLats(sharedState.distanceMeasurementPoints))
+                                GeoJSONData(LineString.fromLngLats(distanceMeasurementPoints))
                         }
                         lastClick = System.currentTimeMillis()
                     }
@@ -427,9 +442,16 @@ fun CycleMapView(
             }
 
             if (route.size > 1) {
+                val routeGeometry = LineString.fromLngLats(route)
                 routeLayer.data =
-                    GeoJSONData(LineString.fromLngLats(route))
+                    GeoJSONData(routeGeometry)
                 showRoute = true
+                sharedState.mapViewportState.transitionToOverviewState(
+                    overviewViewportStateOptions = OverviewViewportStateOptions.Builder()
+                        .geometry(routeGeometry)
+                        .padding(EdgeInsets(100.0, 100.0, 100.0, 100.0))
+                        .build()
+                )
             }
         }
     }
