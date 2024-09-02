@@ -1,11 +1,13 @@
 package com.henrythasler.cyclemap
 
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -26,6 +29,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -55,6 +59,10 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
+import com.mapbox.common.location.DeviceLocationProvider
+import com.mapbox.common.location.Location
+import com.mapbox.common.location.LocationObserver
+import com.mapbox.common.location.LocationServiceFactory
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.maps.EdgeInsets
@@ -92,7 +100,7 @@ fun CycleMapView(
             .setPitchEnabled(false)
             .build()
     }
-//    val mapViewportState = remember { sharedState.mapViewportState }
+//    val trackPoints = remember { sharedState.trackPoints }
 //    val styleUrl: String = stringResource(id = R.string.style_cyclemap_url)
     var styleUrl by remember { mutableStateOf<String>("https://www.cyclemap.link/cyclemap-style.json") }
     var currentStyleId by remember { mutableStateOf<String>("cyclemap") }
@@ -109,6 +117,7 @@ fun CycleMapView(
     var followLocation by remember { mutableStateOf(false) }
     var recordLocation by remember { mutableStateOf(false) }
     var showMainMenu by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
     var showStyleSelection by remember { mutableStateOf(false) }
     var permissionRequestCount by remember { mutableIntStateOf(1) }
     var showRequestPermissionButton by remember { mutableStateOf(false) }
@@ -116,12 +125,16 @@ fun CycleMapView(
 
     val context = LocalContext.current
 
+    val mapboxLocationService: com.mapbox.common.location.LocationService =
+        LocationServiceFactory.getOrCreate()
+    var locationProvider: DeviceLocationProvider? = null
+
     val distanceMeasurementLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
     val routeLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
     val trackLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
     val styleDefinitions: List<StyleDefinition> = parseStyleDefinitions(context)
 
-    // File handline
+    // File handling
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -175,6 +188,20 @@ fun CycleMapView(
                             followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
                                 .bearing(null).padding(null).pitch(null).zoom(null).build()
                         )
+
+                        val result = mapboxLocationService.getDeviceLocationProvider(null)
+                        if (result.isValue) {
+                            locationProvider = result.value!!
+                            locationProvider!!.addLocationObserver { location ->
+                                Log.i(
+                                    TAG,
+                                    "Location update received: ${location.last().speed?.times(3.6)} km/h"
+                                )
+                            }
+                            Log.i(TAG, "location provider: ${locationProvider!!.getName()}")
+                        } else {
+                            Log.e(TAG, "Failed to get device location provider")
+                        }
                     } else {
                         sharedState.mapViewportState.idle()
                     }
@@ -203,18 +230,18 @@ fun CycleMapView(
                         lineBorderColor = ColorValue(colorResource(R.color.routeLineCasing)),
                     )
                 }
-                if (recordLocation) {
-                    LineLayer(
-                        sourceState = trackLayer,
-                        lineWidth = DoubleValue(11.0),
-                        lineOpacity = DoubleValue(0.75),
-                        lineCap = LineCapValue.ROUND,
-                        lineJoin = LineJoinValue.ROUND,
-                        lineColor = ColorValue(colorResource(R.color.trackLine)),
-                        lineBorderWidth = DoubleValue(1.0),
-                        lineBorderColor = ColorValue(colorResource(R.color.trackLineCasing)),
-                    )
-                }
+
+                // always show the recorded track for future reference even after recording was stopped
+                LineLayer(
+                    sourceState = trackLayer,
+                    lineWidth = DoubleValue(11.0),
+                    lineOpacity = DoubleValue(0.75),
+                    lineCap = LineCapValue.ROUND,
+                    lineJoin = LineJoinValue.ROUND,
+                    lineColor = ColorValue(colorResource(R.color.trackLine)),
+                    lineBorderWidth = DoubleValue(1.0),
+                    lineBorderColor = ColorValue(colorResource(R.color.trackLineCasing)),
+                )
             }
         }
 
@@ -230,6 +257,13 @@ fun CycleMapView(
                         distanceMeasurementLayer.data = GeoJSONData(LineString.fromLngLats(points))
                     }
             }
+        }
+
+        LaunchedEffect(key1 = sharedState.trackPoints) {
+            snapshotFlow { sharedState.trackPoints }
+                .collect { points ->
+                    trackLayer.data = GeoJSONData(LineString.fromLngLats(points))
+                }
         }
 
         // Crosshair and Distance Measurement
@@ -337,6 +371,36 @@ fun CycleMapView(
                             )
                         }
                     )
+                    DropdownMenuItem(
+                        text = {
+                            Text(text = stringResource(R.string.menu_gpx_save))
+                        },
+                        onClick = {
+                            showMainMenu = false
+                            // TODO: Implement GPX writer
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painterResource(id = R.drawable.baseline_save_alt_24),
+                                stringResource(R.string.menu_gpx_save)
+                            )
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(text = stringResource(R.string.menu_about))
+                        },
+                        onClick = {
+                            showMainMenu = false
+                            showAbout = true
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painterResource(id = R.drawable.baseline_info_24),
+                                stringResource(R.string.menu_about)
+                            )
+                        }
+                    )
                 }
             }
 
@@ -346,6 +410,11 @@ fun CycleMapView(
                         trackLocation = !trackLocation
                     } else {
                         requestLocationTracking = true
+                    }
+
+                    if (!trackLocation) {
+                        recordLocation = false
+                        disableLocationService()
                     }
                 },
             ) {
@@ -409,7 +478,6 @@ fun CycleMapView(
         }
 
         if (showStyleSelection) {
-//            StyleCards(styleDefinitions)
             StyleSelectionSheet(
                 onDismiss = {
                     showStyleSelection = false
@@ -428,11 +496,49 @@ fun CycleMapView(
                 showStyleSelection = false
             }
         }
+
+        if (trackLocation) {
+//            val speed = mapState.
+            Text(
+                modifier = Modifier
+                    .background(Color.White)
+                    .align(Alignment.TopCenter)
+                    .padding(4.dp),
+                text = "XXX km/h"
+            )
+        }
+    }
+
+    if (showAbout) {
+        AlertDialog(
+            title = {
+                Text(text = "CycleMap")
+            },
+            text = {
+                val sdk = Build.VERSION.SDK_INT // SDK version
+//                val versionName = BuildConfig.VERSION_NAME // App version name from BuildConfig
+//                val packageName = BuildConfig.APPLICATION_ID // App package name from BuildConfig
+//                val build = BuildConfig.VERSION_CODE // Build type (debug/release) from BuildConfig
+                Text(text = "API $sdk")
+            },
+            onDismissRequest = {
+                showAbout = false
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showAbout = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            }
+        )
     }
 
     selectedUri?.let { uri ->
         ReadSelectedGpx(uri) { gpx ->
-            // Now you can work with the GPX data
+            // process GPX data after loading
             val route: MutableList<Point> = mutableListOf()
 
             gpx.track?.segments?.forEach { segment ->

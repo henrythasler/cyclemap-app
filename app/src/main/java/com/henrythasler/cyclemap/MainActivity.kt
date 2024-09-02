@@ -129,6 +129,10 @@ class MainActivity : ComponentActivity() {
         override fun run() {
             if (customLocationService.locations.size > 0) {
                 Log.i(TAG, customLocationService.locations.last().toString())
+                sharedState.addTrackPoint(Point.fromLngLat(
+                    customLocationService.locations.last().longitude,
+                    customLocationService.locations.last().latitude,
+                ))
             }
 
             if(locationServiceBound) {

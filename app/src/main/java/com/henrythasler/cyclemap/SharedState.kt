@@ -16,20 +16,19 @@ class SharedState {
         set(value) {
             _mapViewportState.value = value
         }
-/*
-    private val _distanceMeasurementPoints: MutableState<List<Point>> = mutableStateOf(listOf())
-    var distanceMeasurementPoints: List<Point>
-        get() = _distanceMeasurementPoints.value
+
+    private val _trackPoints: MutableState<List<Point>> = mutableStateOf(listOf())
+    var trackPoints: List<Point>
+        get() = _trackPoints.value
         set(value) {
-            _distanceMeasurementPoints.value = value
+            _trackPoints.value = value
         }
 
-    fun addPoint(point: Point) {
-        _distanceMeasurementPoints.value = _distanceMeasurementPoints.value + point
+    fun addTrackPoint(point: Point) {
+        _trackPoints.value = _trackPoints.value + point
     }
 
-    fun clearPoints() {
-        _distanceMeasurementPoints.value = listOf()
+    fun clearTrackPoints() {
+        _trackPoints.value = listOf()
     }
- */
 }
