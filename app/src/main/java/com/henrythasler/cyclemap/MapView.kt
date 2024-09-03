@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
@@ -28,9 +29,11 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -50,15 +53,20 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
+import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.common.location.DeviceLocationProvider
 import com.mapbox.common.location.Location
 import com.mapbox.common.location.LocationObserver
@@ -66,6 +74,7 @@ import com.mapbox.common.location.LocationServiceFactory
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.maps.EdgeInsets
+import com.mapbox.maps.MapView
 import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.ScreenCoordinate
 import com.mapbox.maps.extension.compose.MapEffect
@@ -81,10 +90,13 @@ import com.mapbox.maps.extension.compose.style.sources.GeoJSONData
 import com.mapbox.maps.extension.compose.style.sources.generated.GeoJsonSourceState
 import com.mapbox.maps.extension.compose.style.sources.generated.rememberGeoJsonSourceState
 import com.mapbox.maps.plugin.PuckBearing
+import com.mapbox.maps.plugin.gestures.OnMoveListener
+import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
+import java.text.DecimalFormat
 
 @OptIn(MapboxExperimental::class, ExperimentalFoundationApi::class)
 @Composable
@@ -125,6 +137,8 @@ fun CycleMapView(
 
     val context = LocalContext.current
 
+    var currentSpeed by remember { mutableDoubleStateOf(0.0) }
+
     val mapboxLocationService: com.mapbox.common.location.LocationService =
         LocationServiceFactory.getOrCreate()
     var locationProvider: DeviceLocationProvider? = null
@@ -143,6 +157,11 @@ fun CycleMapView(
             selectedUri = it
             Log.i(TAG, "selected file: ${it.path}")
         }
+    }
+
+    // location stuff
+    val locationObserver = LocationObserver { location ->
+        location.last().speed?.times(3.6)?.let { currentSpeed = it }
     }
 
     Box(
@@ -189,21 +208,18 @@ fun CycleMapView(
                                 .bearing(null).padding(null).pitch(null).zoom(null).build()
                         )
 
-                        val result = mapboxLocationService.getDeviceLocationProvider(null)
-                        if (result.isValue) {
-                            locationProvider = result.value!!
-                            locationProvider!!.addLocationObserver { location ->
-                                Log.i(
-                                    TAG,
-                                    "Location update received: ${location.last().speed?.times(3.6)} km/h"
-                                )
-                            }
-                            Log.i(TAG, "location provider: ${locationProvider!!.getName()}")
-                        } else {
-                            Log.e(TAG, "Failed to get device location provider")
+                        // request location updates for current speed indicator
+                        locationProvider =
+                            mapboxLocationService.getDeviceLocationProvider(null).value
+                        locationProvider?.run {
+                            addLocationObserver(locationObserver)
+                            Log.i(TAG, "location provider: ${getName()}")
                         }
                     } else {
                         sharedState.mapViewportState.idle()
+                        locationProvider?.run {
+                            removeLocationObserver(locationObserver)
+                        }
                     }
                 }
 
@@ -406,15 +422,25 @@ fun CycleMapView(
 
             SmallFloatingActionButton(
                 onClick = {
-                    if (locationPermission) {
-                        trackLocation = !trackLocation
+                    if (trackLocation) {
+                        if (!followLocation) {
+                            sharedState.mapViewportState.transitionToFollowPuckState(
+                                followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
+                                    .bearing(null).padding(null).pitch(null).zoom(null).build()
+                            )
+                            followLocation = true
+                        } else {
+                            trackLocation = false
+                            recordLocation = false
+                            disableLocationService()
+                        }
                     } else {
-                        requestLocationTracking = true
-                    }
-
-                    if (!trackLocation) {
-                        recordLocation = false
-                        disableLocationService()
+                        if (locationPermission) {
+                            trackLocation = true
+                            followLocation = true
+                        } else {
+                            requestLocationTracking = true
+                        }
                     }
                 },
             ) {
@@ -498,14 +524,7 @@ fun CycleMapView(
         }
 
         if (trackLocation) {
-//            val speed = mapState.
-            Text(
-                modifier = Modifier
-                    .background(Color.White)
-                    .align(Alignment.TopCenter)
-                    .padding(4.dp),
-                text = "XXX km/h"
-            )
+            SpeedDisplay(currentSpeed)
         }
     }
 
@@ -561,14 +580,4 @@ fun CycleMapView(
             }
         }
     }
-}
-
-@Composable
-fun DistanceBadge(distance: Double) {
-    Text(
-        modifier = Modifier.padding(3.dp),
-        fontSize = 18.sp,
-        fontStyle = FontStyle.Italic,
-        text = getFormattedDistance(distance)
-    )
 }

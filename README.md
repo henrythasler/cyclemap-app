@@ -19,7 +19,7 @@ An Android app for offline usage of vector-tiles
 - [.] Load/show route (GPX) and metadata
 - [.] Record current track; Show while recording; Show metadata (length, time, ...)
 - [ ] Save recorded track as GPX
-- [ ] Show current speed while tracking
+- [.] Show current speed while tracking
 - [ ] track statistics
 - [ ] clear current track
 - [ ] Save Measurement as GPX
