@@ -7,7 +7,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,7 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
@@ -27,6 +26,7 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
@@ -94,6 +94,7 @@ import com.mapbox.maps.plugin.gestures.OnMoveListener
 import com.mapbox.maps.plugin.gestures.gestures
 import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
+import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
 import java.text.DecimalFormat
@@ -160,8 +161,26 @@ fun CycleMapView(
     }
 
     // location stuff
-    val locationObserver = LocationObserver { location ->
-        location.last().speed?.times(3.6)?.let { currentSpeed = it }
+    val locationObserver = remember {
+        LocationObserver { location ->
+            location.last().speed?.times(3.6)?.let { currentSpeed = it }
+        }
+    }
+
+    val onMoveListener = remember {
+        object : OnMoveListener {
+            override fun onMoveBegin(detector: MoveGestureDetector) {
+                if (followLocation) Log.d(TAG, "tracking disabled")
+                followLocation = false
+            }
+
+            override fun onMove(detector: MoveGestureDetector): Boolean {
+                return false // Return true to consume the event, false to propagate it
+            }
+
+            override fun onMoveEnd(detector: MoveGestureDetector) {
+            }
+        }
     }
 
     Box(
@@ -207,6 +226,10 @@ fun CycleMapView(
                             followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
                                 .bearing(null).padding(null).pitch(null).zoom(null).build()
                         )
+                        followLocation = true
+
+                        Log.d(TAG, "addOnMoveListener")
+                        mapView.gestures.addOnMoveListener(onMoveListener)
 
                         // request location updates for current speed indicator
                         locationProvider =
@@ -217,6 +240,8 @@ fun CycleMapView(
                         }
                     } else {
                         sharedState.mapViewportState.idle()
+                        Log.d(TAG, "removeOnMoveListener")
+                        mapView.gestures.removeOnMoveListener(onMoveListener)
                         locationProvider?.run {
                             removeLocationObserver(locationObserver)
                         }
@@ -339,8 +364,8 @@ fun CycleMapView(
         val padding = 8.dp
         Column(
             modifier = Modifier
-                .padding(padding)
-                .fillMaxHeight(),
+                .align(Alignment.CenterStart)
+                .padding(padding),
             verticalArrangement = Arrangement.Center
         ) {
             Row {
@@ -372,6 +397,7 @@ fun CycleMapView(
                             )
                         }
                     )
+                    HorizontalDivider()
                     DropdownMenuItem(
                         text = {
                             Text(text = stringResource(R.string.menu_gpx_load))
@@ -404,6 +430,22 @@ fun CycleMapView(
                     )
                     DropdownMenuItem(
                         text = {
+                            Text(text = stringResource(R.string.menu_delete_track))
+                        },
+                        onClick = {
+                            showMainMenu = false
+                            sharedState.clearTrackPoints()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painterResource(id = R.drawable.baseline_delete_forever_24),
+                                stringResource(R.string.menu_delete_track)
+                            )
+                        }
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = {
                             Text(text = stringResource(R.string.menu_about))
                         },
                         onClick = {
@@ -426,7 +468,9 @@ fun CycleMapView(
                         if (!followLocation) {
                             sharedState.mapViewportState.transitionToFollowPuckState(
                                 followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
-                                    .bearing(null).padding(null).pitch(null).zoom(null).build()
+                                    .bearing(null).padding(null).pitch(null).zoom(null).build(),
+                                defaultTransitionOptions = DefaultViewportTransitionOptions.Builder()
+                                    .maxDurationMs(100).build()
                             )
                             followLocation = true
                         } else {
@@ -437,7 +481,6 @@ fun CycleMapView(
                     } else {
                         if (locationPermission) {
                             trackLocation = true
-                            followLocation = true
                         } else {
                             requestLocationTracking = true
                         }
@@ -454,25 +497,46 @@ fun CycleMapView(
                 Icon(Icons.Filled.Search, stringResource(R.string.button_search_desc))
             }
 
-            if (trackLocation) {
-                SmallFloatingActionButton(
-                    onClick = {
-                        recordLocation = !recordLocation
-                        if (recordLocation) {
-                            enableLocationService()
-                        } else {
-                            disableLocationService()
-                        }
-                    },
-                ) {
-                    Icon(
-                        tint = if (recordLocation) Color.Red else Color.Unspecified,
-                        painter = painterResource(id = R.drawable.baseline_fiber_manual_record_24),
-                        contentDescription = stringResource(R.string.button_record_desc)
-                    )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .size(96.dp)    // FIXME: find a better hack
+            )
+            {
+                if (trackLocation) {
+                    SmallFloatingActionButton(
+                        onClick = {
+                            recordLocation = !recordLocation
+                            if (recordLocation) {
+                                enableLocationService()
+                            } else {
+                                disableLocationService()
+                            }
+                        },
+                    ) {
+                        Icon(
+                            tint = if (recordLocation) Color.Red else Color.Unspecified,
+                            painter = painterResource(id = R.drawable.baseline_fiber_manual_record_24),
+                            contentDescription = stringResource(R.string.button_record_desc)
+                        )
+                    }
+                }
+
+                if (distanceMeasurement && distanceMeasurementPoints.size >= 2) {
+                    SmallFloatingActionButton(
+                        onClick = {
+                            // TODO
+                        },
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_save_alt_24),
+                            contentDescription = stringResource(R.string.menu_gpx_save)
+                        )
+                    }
                 }
             }
         }
+
 
         if (requestLocationTracking) {
             RequestLocationPermission(
