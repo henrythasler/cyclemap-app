@@ -29,6 +29,7 @@ data class StyleDefinition(
     val styleName: String,
     val styleId: String,
     val styleSource: String,
+    val drawable: String,
  )
 
 fun parseStyleDefinitions(context: Context): List<StyleDefinition> {

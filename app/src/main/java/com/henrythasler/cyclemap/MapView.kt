@@ -1,5 +1,6 @@
 package com.henrythasler.cyclemap
 
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -12,10 +13,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
@@ -51,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -113,8 +118,9 @@ fun CycleMapView(
             .setPitchEnabled(false)
             .build()
     }
-//    val trackPoints = remember { sharedState.trackPoints }
-//    val styleUrl: String = stringResource(id = R.string.style_cyclemap_url)
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val windowInsets = WindowInsets.systemBars.asPaddingValues()
+
     var styleUrl by remember { mutableStateOf<String>("https://www.cyclemap.link/cyclemap-style.json") }
     var currentStyleId by remember { mutableStateOf<String>("cyclemap") }
 
@@ -203,7 +209,7 @@ fun CycleMapView(
                 },
                 scaleBar = {
                     ScaleBar(
-                        Modifier.padding(bottom = 48.dp),
+                        Modifier.padding(windowInsets),
                         alignment = Alignment.BottomEnd,
                         height = 5.dp,
                         borderWidth = 1.dp,
@@ -364,8 +370,8 @@ fun CycleMapView(
         val padding = 8.dp
         Column(
             modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(padding),
+                .align( if(isLandscape) Alignment.CenterEnd else Alignment.CenterStart)
+                .padding(windowInsets),
             verticalArrangement = Arrangement.Center
         ) {
             Row {
@@ -456,6 +462,26 @@ fun CycleMapView(
                             Icon(
                                 painterResource(id = R.drawable.baseline_info_24),
                                 stringResource(R.string.menu_about)
+                            )
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(text = stringResource(R.string.menu_screenshot))
+                        },
+                        onClick = {
+                            showMainMenu = false
+                            sharedState.mapViewportState.setCameraOptions {
+                                center(Point.fromLngLat(10.897498, 48.279076))
+                                zoom(14.87486)
+                                pitch(0.0)
+                                bearing(0.0)
+                            }
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painterResource(id = R.drawable.baseline_my_location_24),
+                                stringResource(R.string.menu_screenshot)
                             )
                         }
                     )
@@ -588,7 +614,7 @@ fun CycleMapView(
         }
 
         if (trackLocation) {
-            SpeedDisplay(currentSpeed)
+            SpeedDisplay(currentSpeed, windowInsets)
         }
     }
 

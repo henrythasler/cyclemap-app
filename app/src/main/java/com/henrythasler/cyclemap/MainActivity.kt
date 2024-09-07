@@ -29,10 +29,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var customLocationService: LocationService
     private var locationServiceBound: Boolean = false
 
-    private val locationService: com.mapbox.common.location.LocationService =
-        LocationServiceFactory.getOrCreate()
-    private var locationProvider: DeviceLocationProvider? = null
-
     /** Defines callbacks for service binding, passed to bindService()  */
     private val locationServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {

@@ -20,11 +20,15 @@ An Android app for offline usage of vector-tiles
 - [.] Record current track; Show while recording; Show metadata (length, time, ...)
 - [ ] Save recorded track as GPX
 - [.] Show current speed while tracking
+- [.] Graceful handling of device orientation changes
+- [ ] Consider 
 - [ ] track statistics
 - [ ] clear current track
 - [ ] Save Measurement as GPX
 - [ ] Share map position (Link, Text)
 - [ ] Favorite locations (add, delete, fly-to)
+
+> x=done .=in progress 
 
 ## References
 

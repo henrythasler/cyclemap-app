@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +44,7 @@ fun StyleSelectionSheet(
         onDismissRequest = onDismiss,
     ) {
         val padding = 8.dp
+        val context = LocalContext.current
         for (styleDefinition in styleDefinitions) {
             Row(
                 modifier = Modifier
@@ -52,16 +54,17 @@ fun StyleSelectionSheet(
                     },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                val resourceId = context.resources.getIdentifier(styleDefinition.drawable, "drawable", context.packageName)
                 Image(
                     modifier = Modifier
                         .padding(padding),
-                    painter = painterResource(id = R.drawable.style_cyclemap_round),
+                    painter = painterResource(id = resourceId),
                     contentDescription = styleDefinition.styleName
                 )
                 Text(
                     modifier = Modifier
                         .padding(padding),
-                    fontSize = 24.sp,
+//                    fontSize = 24.sp,
                     fontWeight = if (styleDefinition.styleId == currentStyle) FontWeight.Bold else FontWeight.Normal,
                     text = styleDefinition.styleName
 
