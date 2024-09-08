@@ -367,7 +367,6 @@ fun CycleMapView(
         }
 
         // Menu
-        val padding = 8.dp
         Column(
             modifier = Modifier
                 .align( if(isLandscape) Alignment.CenterEnd else Alignment.CenterStart)
@@ -383,109 +382,41 @@ fun CycleMapView(
                     Icon(Icons.Filled.Menu, stringResource(R.string.button_menu_desc))
                 }
 
-                DropdownMenu(
-                    expanded = showMainMenu,
-                    offset = DpOffset(48.dp, 0.dp),
-                    onDismissRequest = { showMainMenu = false },
-                ) {
-                    DropdownMenuItem(
-                        text = {
-                            Text(text = stringResource(R.string.menu_map_style))
-                        },
-                        onClick = {
-                            showMainMenu = false
-                            showStyleSelection = true
-                        },
-                        leadingIcon = {
-                            Icon(
-                                painterResource(id = R.drawable.baseline_map_24),
-                                stringResource(R.string.menu_map_style)
-                            )
+                MainMenu(
+                    showMainMenu,
+                    onDismissRequest = {
+                        showMainMenu = false
+                                       },
+                    onSelectMapStyle = {
+                        showMainMenu = false
+                        showStyleSelection = true
+                    },
+                    onLoadGpx = {
+                        showMainMenu = false
+                        launcher.launch("*/*")
+                    },
+                    onSaveGpx = {
+                        showMainMenu = false
+                        // TODO: Implement GPX writer
+                    },
+                    onDeleteTrack = {
+                        showMainMenu = false
+                        sharedState.clearTrackPoints()
+                    },
+                    onAbout = {
+                        showMainMenu = false
+                        showAbout = true
+                    },
+                    onScreenshot = {
+                        showMainMenu = false
+                        sharedState.mapViewportState.setCameraOptions {
+                            center(Point.fromLngLat(10.897498, 48.279076))
+                            zoom(14.87486)
+                            pitch(0.0)
+                            bearing(0.0)
                         }
-                    )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = {
-                            Text(text = stringResource(R.string.menu_gpx_load))
-                        },
-                        onClick = {
-                            showMainMenu = false
-                            launcher.launch("*/*")
-                        },
-                        leadingIcon = {
-                            Icon(
-                                painterResource(id = R.drawable.baseline_directions_24),
-                                stringResource(R.string.menu_gpx_load)
-                            )
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(text = stringResource(R.string.menu_gpx_save))
-                        },
-                        onClick = {
-                            showMainMenu = false
-                            // TODO: Implement GPX writer
-                        },
-                        leadingIcon = {
-                            Icon(
-                                painterResource(id = R.drawable.baseline_save_alt_24),
-                                stringResource(R.string.menu_gpx_save)
-                            )
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(text = stringResource(R.string.menu_delete_track))
-                        },
-                        onClick = {
-                            showMainMenu = false
-                            sharedState.clearTrackPoints()
-                        },
-                        leadingIcon = {
-                            Icon(
-                                painterResource(id = R.drawable.baseline_delete_forever_24),
-                                stringResource(R.string.menu_delete_track)
-                            )
-                        }
-                    )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = {
-                            Text(text = stringResource(R.string.menu_about))
-                        },
-                        onClick = {
-                            showMainMenu = false
-                            showAbout = true
-                        },
-                        leadingIcon = {
-                            Icon(
-                                painterResource(id = R.drawable.baseline_info_24),
-                                stringResource(R.string.menu_about)
-                            )
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(text = stringResource(R.string.menu_screenshot))
-                        },
-                        onClick = {
-                            showMainMenu = false
-                            sharedState.mapViewportState.setCameraOptions {
-                                center(Point.fromLngLat(10.897498, 48.279076))
-                                zoom(14.87486)
-                                pitch(0.0)
-                                bearing(0.0)
-                            }
-                        },
-                        leadingIcon = {
-                            Icon(
-                                painterResource(id = R.drawable.baseline_my_location_24),
-                                stringResource(R.string.menu_screenshot)
-                            )
-                        }
-                    )
-                }
+                    }
+                )
             }
 
             SmallFloatingActionButton(
