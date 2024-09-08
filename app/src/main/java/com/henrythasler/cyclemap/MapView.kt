@@ -1,8 +1,12 @@
 package com.henrythasler.cyclemap
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
+import android.os.IBinder
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -103,14 +107,13 @@ import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
 import java.text.DecimalFormat
+import android.content.ServiceConnection
 
-@OptIn(MapboxExperimental::class, ExperimentalFoundationApi::class)
+@OptIn(MapboxExperimental::class)
 @Composable
 @Preview
 fun CycleMapView(
     sharedState: SharedState = SharedState(),
-    enableLocationService: () -> Unit = {},
-    disableLocationService: () -> Unit = {}
 ) {
     val mapState = rememberMapState {
         gesturesSettings = gesturesSettings.toBuilder()
@@ -131,6 +134,7 @@ fun CycleMapView(
     var distanceMeasurement by remember { mutableStateOf(false) }
     var distance by remember { mutableDoubleStateOf(0.0) }
 
+    var trackPoints by remember { mutableStateOf(listOf<Point>()) }
     var showRoute by remember { mutableStateOf(false) }
     var trackLocation by remember { mutableStateOf(false) }
     var followLocation by remember { mutableStateOf(false) }
@@ -143,6 +147,24 @@ fun CycleMapView(
     var lastClick by remember { mutableLongStateOf(0L) }
 
     val context = LocalContext.current
+    var locationService by remember { mutableStateOf<LocationService?>(null) }
+    var locationServiceBound by remember { mutableStateOf(false) }
+    val connection = remember {
+        object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                val binder = service as LocationService.LocalBinder
+                locationService = binder.getService()
+                locationServiceBound = true
+                Log.i(TAG, "onServiceConnected")
+            }
+
+            override fun onServiceDisconnected(name: ComponentName?) {
+                locationService = null
+                locationServiceBound = false
+                Log.i(TAG, "onServiceDisconnected")
+            }
+        }
+    }
 
     var currentSpeed by remember { mutableDoubleStateOf(0.0) }
 
@@ -186,6 +208,23 @@ fun CycleMapView(
 
             override fun onMoveEnd(detector: MoveGestureDetector) {
             }
+        }
+    }
+
+    fun enableLocationService() {
+        /** start the location service to record the track */
+        Intent(context, LocationService::class.java).also { intent ->
+            Log.i(TAG, "enabling LocationService")
+            context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        }
+    }
+
+    fun disableLocationService() {
+        if (locationServiceBound) {
+            Log.i(TAG, "disabling LocationService")
+            context.unbindService(connection)
+            locationServiceBound = false
+            locationService = null
         }
     }
 
@@ -306,11 +345,15 @@ fun CycleMapView(
             }
         }
 
-        LaunchedEffect(key1 = sharedState.trackPoints) {
-            snapshotFlow { sharedState.trackPoints }
-                .collect { points ->
-                    trackLayer.data = GeoJSONData(LineString.fromLngLats(points))
+        LaunchedEffect(locationServiceBound) {
+            if (locationServiceBound) {
+                locationService?.lastLocation?.collect { location ->
+                    location?.let {
+                        trackPoints += Point.fromLngLat(it.longitude, it.latitude)
+                        trackLayer.data = GeoJSONData(LineString.fromLngLats(trackPoints))
+                    }
                 }
+            }
         }
 
         // Crosshair and Distance Measurement
@@ -369,7 +412,7 @@ fun CycleMapView(
         // Menu
         Column(
             modifier = Modifier
-                .align( if(isLandscape) Alignment.CenterEnd else Alignment.CenterStart)
+                .align(if (isLandscape) Alignment.CenterEnd else Alignment.CenterStart)
                 .padding(windowInsets),
             verticalArrangement = Arrangement.Center
         ) {
@@ -386,7 +429,7 @@ fun CycleMapView(
                     showMainMenu,
                     onDismissRequest = {
                         showMainMenu = false
-                                       },
+                    },
                     onSelectMapStyle = {
                         showMainMenu = false
                         showStyleSelection = true
@@ -401,7 +444,8 @@ fun CycleMapView(
                     },
                     onDeleteTrack = {
                         showMainMenu = false
-                        sharedState.clearTrackPoints()
+                        trackPoints = listOf()
+                        trackLayer.data = GeoJSONData("")
                     },
                     onAbout = {
                         showMainMenu = false
@@ -409,6 +453,7 @@ fun CycleMapView(
                     },
                     onScreenshot = {
                         showMainMenu = false
+                        followLocation = false
                         sharedState.mapViewportState.setCameraOptions {
                             center(Point.fromLngLat(10.897498, 48.279076))
                             zoom(14.87486)
