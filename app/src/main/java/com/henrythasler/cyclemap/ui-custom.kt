@@ -1,6 +1,9 @@
 package com.henrythasler.cyclemap
 
+import android.location.Location
+import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mapbox.geojson.Point
 import java.text.DecimalFormat
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun SpeedDisplay(currentSpeed: Double, padding: PaddingValues) {
@@ -49,6 +54,43 @@ fun SpeedDisplay(currentSpeed: Double, padding: PaddingValues) {
                     bottom = radius / 2
                 )
             )
+        }
+    }
+}
+
+@Composable
+fun TrackStatistics(points: List<Point>, locations: List<Location>, trackRecording: Boolean, padding: PaddingValues) {
+    val radius = 8.dp
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+    ) {
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(padding)
+                .padding(start = radius),
+            shape = RoundedCornerShape(radius),
+            color = colorResource(R.color.distanceMeasurementBadgeBackground),
+        ) {
+            val distance = measureDistance(points)
+            val tripDuration: Duration =
+                ((if (trackRecording) System.currentTimeMillis() else locations.last().time) - locations.first().time).milliseconds
+            Column(
+                modifier = Modifier.padding(
+                    start = radius,
+                    end = radius,
+                    top = radius / 2,
+                    bottom = radius / 2
+                )
+            ) {
+                Text(
+                    text = getFormattedDistance(distance),
+                )
+                Text(
+                    text = DateUtils.formatElapsedTime(tripDuration.inWholeSeconds),
+                )
+            }
         }
     }
 }

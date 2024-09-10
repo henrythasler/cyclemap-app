@@ -1,12 +1,13 @@
 package com.henrythasler.cyclemap
 
+import android.location.Location
 import android.net.Uri
 import android.util.Log
-import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
+import com.mapbox.geojson.Point
 import org.simpleframework.xml.*
 import org.simpleframework.xml.core.Persister
 import java.io.File
@@ -67,7 +68,6 @@ fun writeGpxFile(gpx: Gpx, filePath: String) {
 @Composable
 fun ReadSelectedGpx(uri: Uri, onLoaded: (Gpx) -> Unit) {
     val context = LocalContext.current
-
     LaunchedEffect(uri) {
         try {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
@@ -77,6 +77,44 @@ fun ReadSelectedGpx(uri: Uri, onLoaded: (Gpx) -> Unit) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error loading GPX file $uri: $e")
+        }
+    }
+}
+
+@Composable
+fun SavePointsAsGpx(points: List<Location>, uri: Uri, onSaved: (Boolean) -> Unit) {
+    val context = LocalContext.current
+    LaunchedEffect(uri) {
+        try {
+            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+
+                val trackSegment: MutableList<TrackPoint> = mutableListOf()
+                points.forEach { point ->
+                    trackSegment.add(TrackPoint().apply {
+                        latitude = point.latitude
+                        longitude = point.longitude
+                        elevation = point.altitude
+                        time = point.time.toString()
+                    })
+                }
+
+                val gpx = Gpx().apply {
+                    this.track = Track().apply {
+                        this.segments = listOf(
+                            Segment().apply {
+                                this.trackPoints = trackSegment
+                            }
+                        )
+                    }
+                }
+
+                val serializer = Persister()
+                serializer.write(gpx, outputStream)
+                onSaved(true)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving GPX file $uri: $e")
+            onSaved(false)
         }
     }
 }

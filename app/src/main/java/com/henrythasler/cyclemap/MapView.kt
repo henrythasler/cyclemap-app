@@ -10,7 +10,6 @@ import android.os.IBinder
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,18 +30,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SmallFloatingActionButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -62,28 +54,20 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.common.location.DeviceLocationProvider
-import com.mapbox.common.location.Location
 import com.mapbox.common.location.LocationObserver
 import com.mapbox.common.location.LocationServiceFactory
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.maps.EdgeInsets
-import com.mapbox.maps.MapView
 import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.ScreenCoordinate
 import com.mapbox.maps.extension.compose.MapEffect
@@ -106,8 +90,8 @@ import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
-import java.text.DecimalFormat
 import android.content.ServiceConnection
+import android.location.Location
 
 @OptIn(MapboxExperimental::class)
 @Composable
@@ -135,6 +119,7 @@ fun CycleMapView(
     var distance by remember { mutableDoubleStateOf(0.0) }
 
     var trackPoints by remember { mutableStateOf(listOf<Point>()) }
+    var trackLocations by remember { mutableStateOf(listOf<Location>()) }
     var showRoute by remember { mutableStateOf(false) }
     var trackLocation by remember { mutableStateOf(false) }
     var followLocation by remember { mutableStateOf(false) }
@@ -184,6 +169,16 @@ fun CycleMapView(
     ) { uri: Uri? ->
         uri?.let {
             selectedUri = it
+            Log.i(TAG, "selected file: ${it.path}")
+        }
+    }
+
+    var saveTrackUri by remember { mutableStateOf<Uri?>(null) }
+    val saveLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("*/*")
+    ) { uri: Uri? ->
+        uri?.let {
+            saveTrackUri = it
             Log.i(TAG, "selected file: ${it.path}")
         }
     }
@@ -349,6 +344,7 @@ fun CycleMapView(
             if (locationServiceBound) {
                 locationService?.lastLocation?.collect { location ->
                     location?.let {
+                        trackLocations += location
                         trackPoints += Point.fromLngLat(it.longitude, it.latitude)
                         trackLayer.data = GeoJSONData(LineString.fromLngLats(trackPoints))
                     }
@@ -440,11 +436,12 @@ fun CycleMapView(
                     },
                     onSaveGpx = {
                         showMainMenu = false
-                        // TODO: Implement GPX writer
+                        saveLauncher.launch("track.gpx")
                     },
                     onDeleteTrack = {
                         showMainMenu = false
                         trackPoints = listOf()
+                        trackLocations = listOf()
                         trackLayer.data = GeoJSONData("")
                     },
                     onAbout = {
@@ -592,6 +589,10 @@ fun CycleMapView(
         if (trackLocation) {
             SpeedDisplay(currentSpeed, windowInsets)
         }
+
+        if (trackPoints.size > 1) {
+            TrackStatistics(trackPoints, trackLocations, recordLocation, windowInsets)
+        }
     }
 
     if (showAbout) {
@@ -637,6 +638,7 @@ fun CycleMapView(
                 routeLayer.data =
                     GeoJSONData(routeGeometry)
                 showRoute = true
+                followLocation = false
                 sharedState.mapViewportState.transitionToOverviewState(
                     overviewViewportStateOptions = OverviewViewportStateOptions.Builder()
                         .geometry(routeGeometry)
@@ -644,6 +646,12 @@ fun CycleMapView(
                         .build()
                 )
             }
+        }
+    }
+
+    saveTrackUri?.let { uri ->
+        SavePointsAsGpx(points = trackLocations, uri = uri) {
+            Log.i(TAG, "Saving GPX file successful")
         }
     }
 }
