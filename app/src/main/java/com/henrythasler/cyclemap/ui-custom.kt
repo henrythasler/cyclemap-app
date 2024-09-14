@@ -59,7 +59,7 @@ fun SpeedDisplay(currentSpeed: Double, padding: PaddingValues) {
 }
 
 @Composable
-fun TrackStatistics(points: List<Point>, locations: List<Location>, trackRecording: Boolean, padding: PaddingValues) {
+fun RouteStatistics(distance: Double, waypointCount: Int, padding: PaddingValues) {
     val radius = 8.dp
     Box(
         modifier = Modifier
@@ -73,9 +73,43 @@ fun TrackStatistics(points: List<Point>, locations: List<Location>, trackRecordi
             shape = RoundedCornerShape(radius),
             color = colorResource(R.color.distanceMeasurementBadgeBackground),
         ) {
-            val distance = measureDistance(points)
-            val tripDuration: Duration =
-                ((if (trackRecording) System.currentTimeMillis() else locations.last().time) - locations.first().time).milliseconds
+            Column(
+                modifier = Modifier.padding(
+                    start = radius,
+                    end = radius,
+                    top = radius / 2,
+                    bottom = radius / 2
+                )
+            ) {
+                Text(
+                    text = "$waypointCount Wpts",
+                )
+                Text(
+                    text = getFormattedDistance(distance),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun TrackStatistics(locations: List<Location>, trackRecording: Boolean, padding: PaddingValues) {
+    val radius = 8.dp
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+    ) {
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(padding)
+                .padding(end = radius),
+            shape = RoundedCornerShape(radius),
+            color = colorResource(R.color.distanceMeasurementBadgeBackground),
+        ) {
+            val distance = measureDistance(locationToPoints(locations))
+            val tripDuration: Duration = if (locations.isNotEmpty())
+                ((if (trackRecording) System.currentTimeMillis() else locations.last().time) - locations.first().time).milliseconds else Duration.ZERO
             Column(
                 modifier = Modifier.padding(
                     start = radius,
@@ -111,6 +145,7 @@ fun MainMenu(
     onDismissRequest: () -> Unit,
     onSelectMapStyle: () -> Unit,
     onLoadGpx: () -> Unit,
+    onClearRoute: () -> Unit,
     onSaveGpx: () -> Unit,
     onDeleteTrack: () -> Unit,
     onAbout: () -> Unit,
@@ -146,6 +181,19 @@ fun MainMenu(
                 )
             }
         )
+        DropdownMenuItem(
+            text = {
+                Text(text = stringResource(R.string.menu_delete_route))
+            },
+            onClick = onClearRoute,
+            leadingIcon = {
+                Icon(
+                    painterResource(id = R.drawable.baseline_directions_off_24),
+                    stringResource(R.string.menu_delete_route)
+                )
+            }
+        )
+        HorizontalDivider()
         DropdownMenuItem(
             text = {
                 Text(text = stringResource(R.string.menu_gpx_save))

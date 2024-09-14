@@ -7,10 +7,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
-import com.mapbox.geojson.Point
-import org.simpleframework.xml.*
+import org.simpleframework.xml.Attribute
+import org.simpleframework.xml.Element
+import org.simpleframework.xml.ElementList
+import org.simpleframework.xml.Root
 import org.simpleframework.xml.core.Persister
 import java.io.File
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Root(name = "gpx", strict = false)
 class Gpx {
@@ -81,23 +86,13 @@ fun ReadSelectedGpx(uri: Uri, onLoaded: (Gpx) -> Unit) {
     }
 }
 
-@Composable
-fun SavePointsAsGpx(points: List<Location>, uri: Uri, onSaved: (Boolean) -> Unit) {
-    val context = LocalContext.current
-    LaunchedEffect(uri) {
+/**
+ * write a GPX trackSegment in a coroutine
+ */
+suspend fun writeGpx(context: Context, trackSegment: MutableList<TrackPoint>, uri: Uri): Boolean {
+    withContext(Dispatchers.IO) {
         try {
             context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-
-                val trackSegment: MutableList<TrackPoint> = mutableListOf()
-                points.forEach { point ->
-                    trackSegment.add(TrackPoint().apply {
-                        latitude = point.latitude
-                        longitude = point.longitude
-                        elevation = point.altitude
-                        time = point.time.toString()
-                    })
-                }
-
                 val gpx = Gpx().apply {
                     this.track = Track().apply {
                         this.segments = listOf(
@@ -110,11 +105,11 @@ fun SavePointsAsGpx(points: List<Location>, uri: Uri, onSaved: (Boolean) -> Unit
 
                 val serializer = Persister()
                 serializer.write(gpx, outputStream)
-                onSaved(true)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error saving GPX file $uri: $e")
-            onSaved(false)
+            return@withContext false
         }
     }
+    return true
 }

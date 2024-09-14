@@ -16,15 +16,13 @@ An Android app for offline usage of vector-tiles
 - [x] Crosshair centered on map and zoom on crosshair center
 - [x] Interactive polyline distance measurement when clicking the crosshair
 - [x] Change map style (Cyclemap, Shadow, X-Ray, Mapbox, Satellite, ...)
-- [.] Load/show route (GPX) and metadata
+- [x] Load/show route (GPX) and metadata
 - [.] Record current track; Show while recording; Show metadata (length, time, ...)
-- [ ] Save recorded track as GPX
-- [.] Show current speed while tracking
+- [x] Save recorded track as GPX
+- [x] Show current speed while tracking
 - [.] Graceful handling of device orientation changes
-- [ ] Consider 
-- [ ] track statistics
-- [ ] clear current track
-- [ ] Save Measurement as GPX
+- [x] clear current track
+- [x] Save Measurement as GPX
 - [ ] Share map position (Link, Text)
 - [ ] Favorite locations (add, delete, fly-to)
 

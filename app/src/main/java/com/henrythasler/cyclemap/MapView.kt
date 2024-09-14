@@ -92,6 +92,8 @@ import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
 import android.content.ServiceConnection
 import android.location.Location
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @OptIn(MapboxExperimental::class)
 @Composable
@@ -108,8 +110,8 @@ fun CycleMapView(
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val windowInsets = WindowInsets.systemBars.asPaddingValues()
 
-    var styleUrl by remember { mutableStateOf<String>("https://www.cyclemap.link/cyclemap-style.json") }
-    var currentStyleId by remember { mutableStateOf<String>("cyclemap") }
+    var styleUrl by remember { mutableStateOf("https://www.cyclemap.link/cyclemap-style.json") }
+    var currentStyleId by remember { mutableStateOf("cyclemap") }
 
     var requestLocationTracking by remember { mutableStateOf(false) }
     var locationPermission by remember { mutableStateOf(false) }
@@ -118,7 +120,6 @@ fun CycleMapView(
     var distanceMeasurement by remember { mutableStateOf(false) }
     var distance by remember { mutableDoubleStateOf(0.0) }
 
-    var trackPoints by remember { mutableStateOf(listOf<Point>()) }
     var trackLocations by remember { mutableStateOf(listOf<Location>()) }
     var showRoute by remember { mutableStateOf(false) }
     var trackLocation by remember { mutableStateOf(false) }
@@ -152,6 +153,8 @@ fun CycleMapView(
     }
 
     var currentSpeed by remember { mutableDoubleStateOf(0.0) }
+    var routeDistance by remember { mutableDoubleStateOf(0.0) }
+    var waypointCount by remember { mutableIntStateOf(0) }
 
     val mapboxLocationService: com.mapbox.common.location.LocationService =
         LocationServiceFactory.getOrCreate()
@@ -164,6 +167,7 @@ fun CycleMapView(
 
     // File handling
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
+    val coroutineScope = rememberCoroutineScope()
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -173,13 +177,41 @@ fun CycleMapView(
         }
     }
 
-    var saveTrackUri by remember { mutableStateOf<Uri?>(null) }
-    val saveLauncher = rememberLauncherForActivityResult(
+    val saveTrack = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("*/*")
     ) { uri: Uri? ->
         uri?.let {
-            saveTrackUri = it
-            Log.i(TAG, "selected file: ${it.path}")
+            Log.i(TAG, "saving track to: ${it.path}")
+            coroutineScope.launch {
+                val trackSegment: MutableList<TrackPoint> = mutableListOf()
+                trackLocations.forEach { point ->
+                    trackSegment.add(TrackPoint().apply {
+                        latitude = point.latitude
+                        longitude = point.longitude
+                        elevation = point.altitude
+                        time = point.time.toString()
+                    })
+                }
+                writeGpx(context, trackSegment, uri)
+            }
+        }
+    }
+
+    val saveRoute = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("*/*")
+    ) { uri: Uri? ->
+        uri?.let {
+            Log.i(TAG, "saving route to: ${it.path}")
+            coroutineScope.launch {
+                val trackSegment: MutableList<TrackPoint> = mutableListOf()
+                distanceMeasurementPoints.forEach { point ->
+                    trackSegment.add(TrackPoint().apply {
+                        latitude = point.latitude()
+                        longitude = point.longitude()
+                    })
+                }
+                writeGpx(context, trackSegment, uri)
+            }
         }
     }
 
@@ -288,17 +320,6 @@ fun CycleMapView(
                     }
                 }
 
-                if (distanceMeasurement) {
-                    LineLayer(
-                        sourceState = distanceMeasurementLayer,
-                        lineWidth = DoubleValue(7.0),
-                        lineCap = LineCapValue.ROUND,
-                        lineJoin = LineJoinValue.ROUND,
-                        lineColor = ColorValue(colorResource(R.color.distanceMeasurementLine)),
-                        lineBorderWidth = DoubleValue(1.0),
-                        lineBorderColor = ColorValue(colorResource(R.color.distanceMeasurementLineCasing)),
-                    )
-                }
                 if (showRoute) {
                     LineLayer(
                         sourceState = routeLayer,
@@ -323,6 +344,18 @@ fun CycleMapView(
                     lineBorderWidth = DoubleValue(1.0),
                     lineBorderColor = ColorValue(colorResource(R.color.trackLineCasing)),
                 )
+
+                if (distanceMeasurement) {
+                    LineLayer(
+                        sourceState = distanceMeasurementLayer,
+                        lineWidth = DoubleValue(7.0),
+                        lineCap = LineCapValue.ROUND,
+                        lineJoin = LineJoinValue.ROUND,
+                        lineColor = ColorValue(colorResource(R.color.distanceMeasurementLine)),
+                        lineBorderWidth = DoubleValue(1.0),
+                        lineBorderColor = ColorValue(colorResource(R.color.distanceMeasurementLineCasing)),
+                    )
+                }
             }
         }
 
@@ -342,11 +375,10 @@ fun CycleMapView(
 
         LaunchedEffect(locationServiceBound) {
             if (locationServiceBound) {
-                locationService?.lastLocation?.collect { location ->
+                locationService?.currentLocation?.collect { location ->
                     location?.let {
                         trackLocations += location
-                        trackPoints += Point.fromLngLat(it.longitude, it.latitude)
-                        trackLayer.data = GeoJSONData(LineString.fromLngLats(trackPoints))
+                        trackLayer.data = GeoJSONData(LineString.fromLngLats(locationToPoints(trackLocations)))
                     }
                 }
             }
@@ -434,13 +466,17 @@ fun CycleMapView(
                         showMainMenu = false
                         launcher.launch("*/*")
                     },
+                    onClearRoute = {
+                        showMainMenu = false
+                        showRoute = false
+                        routeLayer.data = GeoJSONData("")
+                    },
                     onSaveGpx = {
                         showMainMenu = false
-                        saveLauncher.launch("track.gpx")
+                        saveTrack.launch("track.gpx")
                     },
                     onDeleteTrack = {
                         showMainMenu = false
-                        trackPoints = listOf()
                         trackLocations = listOf()
                         trackLayer.data = GeoJSONData("")
                     },
@@ -524,7 +560,7 @@ fun CycleMapView(
                 if (distanceMeasurement && distanceMeasurementPoints.size >= 2) {
                     SmallFloatingActionButton(
                         onClick = {
-                            // TODO
+                            saveRoute.launch("route.gpx")
                         },
                     ) {
                         Icon(
@@ -590,8 +626,12 @@ fun CycleMapView(
             SpeedDisplay(currentSpeed, windowInsets)
         }
 
-        if (trackPoints.size > 1) {
-            TrackStatistics(trackPoints, trackLocations, recordLocation, windowInsets)
+        if (recordLocation || trackLocations.size > 1) {
+            TrackStatistics(trackLocations, recordLocation, windowInsets)
+        }
+
+        if(showRoute) {
+            RouteStatistics(routeDistance, waypointCount, windowInsets)
         }
     }
 
@@ -634,6 +674,9 @@ fun CycleMapView(
             }
 
             if (route.size > 1) {
+                waypointCount = route.size
+                routeDistance = measureDistance(route)
+
                 val routeGeometry = LineString.fromLngLats(route)
                 routeLayer.data =
                     GeoJSONData(routeGeometry)
@@ -642,16 +685,10 @@ fun CycleMapView(
                 sharedState.mapViewportState.transitionToOverviewState(
                     overviewViewportStateOptions = OverviewViewportStateOptions.Builder()
                         .geometry(routeGeometry)
-                        .padding(EdgeInsets(100.0, 100.0, 100.0, 100.0))
+                        .padding(EdgeInsets(200.0, 200.0, 200.0, 200.0))
                         .build()
                 )
             }
-        }
-    }
-
-    saveTrackUri?.let { uri ->
-        SavePointsAsGpx(points = trackLocations, uri = uri) {
-            Log.i(TAG, "Saving GPX file successful")
         }
     }
 }
