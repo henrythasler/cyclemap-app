@@ -93,6 +93,8 @@ import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
 import android.content.ServiceConnection
 import android.location.Location
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.constraintlayout.widget.ConstraintLayout
 import kotlinx.coroutines.launch
 
 @OptIn(MapboxExperimental::class)
@@ -378,7 +380,8 @@ fun CycleMapView(
                 locationService?.currentLocation?.collect { location ->
                     location?.let {
                         trackLocations += location
-                        trackLayer.data = GeoJSONData(LineString.fromLngLats(locationToPoints(trackLocations)))
+                        trackLayer.data =
+                            GeoJSONData(LineString.fromLngLats(locationToPoints(trackLocations)))
                     }
                 }
             }
@@ -522,7 +525,10 @@ fun CycleMapView(
                     }
                 },
             ) {
-                Icon(Icons.Filled.LocationOn, stringResource(R.string.button_location_desc))
+                Icon(
+                    tint = if (trackLocation) colorResource(R.color.locationActiveTint) else Color.Unspecified,
+                    painter = painterResource(id = R.drawable.baseline_location_on_24),
+                    contentDescription = stringResource(R.string.button_location_desc))
             }
 
             SmallFloatingActionButton(
@@ -532,41 +538,44 @@ fun CycleMapView(
                 Icon(Icons.Filled.Search, stringResource(R.string.button_search_desc))
             }
 
-            Column(
-                modifier = Modifier
-                    .align(Alignment.Start)
-                    .size(96.dp)    // FIXME: find a better hack
-            )
-            {
-                if (trackLocation) {
-                    SmallFloatingActionButton(
-                        onClick = {
-                            recordLocation = !recordLocation
-                            if (recordLocation) {
-                                enableLocationService()
-                            } else {
-                                disableLocationService()
-                            }
-                        },
-                    ) {
-                        Icon(
-                            tint = if (recordLocation) Color.Red else Color.Unspecified,
-                            painter = painterResource(id = R.drawable.baseline_fiber_manual_record_24),
-                            contentDescription = stringResource(R.string.button_record_desc)
-                        )
+            // optional buttons
+            ConstraintLayout {
+                val (optional) = createRefs()
+                Column(
+                    modifier = Modifier.constrainAs(optional) {
+                        top.linkTo(parent.bottom)
                     }
-                }
+                ) {
+                    if (trackLocation) {
+                        SmallFloatingActionButton(
+                            onClick = {
+                                recordLocation = !recordLocation
+                                if (recordLocation) {
+                                    enableLocationService()
+                                } else {
+                                    disableLocationService()
+                                }
+                            },
+                        ) {
+                            Icon(
+                                tint = if (recordLocation) Color.Red else Color.Unspecified,
+                                painter = painterResource(id = R.drawable.baseline_fiber_manual_record_24),
+                                contentDescription = stringResource(R.string.button_record_desc)
+                            )
+                        }
+                    }
 
-                if (distanceMeasurement && distanceMeasurementPoints.size >= 2) {
-                    SmallFloatingActionButton(
-                        onClick = {
-                            saveRoute.launch("route.gpx")
-                        },
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_save_alt_24),
-                            contentDescription = stringResource(R.string.menu_gpx_save)
-                        )
+                    if (distanceMeasurement && distanceMeasurementPoints.size >= 2) {
+                        SmallFloatingActionButton(
+                            onClick = {
+                                saveRoute.launch("route.gpx")
+                            },
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_save_alt_24),
+                                contentDescription = stringResource(R.string.menu_gpx_save)
+                            )
+                        }
                     }
                 }
             }
@@ -630,7 +639,7 @@ fun CycleMapView(
             TrackStatistics(trackLocations, recordLocation, windowInsets)
         }
 
-        if(showRoute) {
+        if (showRoute) {
             RouteStatistics(routeDistance, waypointCount, windowInsets)
         }
     }

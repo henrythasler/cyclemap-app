@@ -1,21 +1,20 @@
 package com.henrythasler.cyclemap
 
-import android.location.Location
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.simpleframework.xml.Attribute
 import org.simpleframework.xml.Element
 import org.simpleframework.xml.ElementList
 import org.simpleframework.xml.Root
 import org.simpleframework.xml.core.Persister
 import java.io.File
-import android.content.Context
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @Root(name = "gpx", strict = false)
 class Gpx {
@@ -92,7 +91,7 @@ fun ReadSelectedGpx(uri: Uri, onLoaded: (Gpx) -> Unit) {
 suspend fun writeGpx(context: Context, trackSegment: MutableList<TrackPoint>, uri: Uri): Boolean {
     withContext(Dispatchers.IO) {
         try {
-            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+            context.contentResolver.openOutputStream(uri, "wt")?.use { outputStream ->
                 val gpx = Gpx().apply {
                     this.track = Track().apply {
                         this.segments = listOf(

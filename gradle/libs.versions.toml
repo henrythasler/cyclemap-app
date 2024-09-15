@@ -14,6 +14,9 @@ playServicesLocation = "21.3.0"
 mapboxSdkTurf = "5.9.0-alpha.1"
 simpleXml = "2.7.1"
 documentfile = "1.0.1"
+constraintlayout = "2.1.4"
+constraintlayoutCompose = "1.1.0-beta01"
+constraintlayoutVersion = "2.2.0-beta01"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -36,6 +39,9 @@ play-services-location = { group = "com.google.android.gms", name = "play-servic
 mapbox-sdk-turf = { group = "com.mapbox.mapboxsdk", name = "mapbox-sdk-turf", version.ref = "mapboxSdkTurf" }
 simple-xml = { group = "org.simpleframework", name = "simple-xml", version.ref = "simpleXml" }
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
+androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+androidx-constraintlayout-compose = { group = "androidx.constraintlayout", name = "constraintlayout-compose", version = "1.0.1" }
+constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version = "2.1.4" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

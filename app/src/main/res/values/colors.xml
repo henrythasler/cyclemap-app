@@ -14,4 +14,5 @@
     <color name="trackLine">#89FF00</color>
     <color name="trackLineCasing">#F6F4E7</color>
     <color name="distanceMeasurementBadgeBackground">#BFF6F4E7</color>
+    <color name="locationActiveTint">#38AF09</color>
 </resources>

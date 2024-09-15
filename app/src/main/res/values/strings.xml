@@ -8,7 +8,7 @@
     <string name="menu_gpx_load">Load GPX Route…</string>
     <string name="menu_delete_route">Clear Route</string>
     <string name="menu_gpx_save">Save Track as GPX…</string>
-    <string name="menu_delete_track">Delete Track</string>
+    <string name="menu_delete_track">Clear Track</string>
     <string name="menu_about">About</string>
     <string name="menu_screenshot">Screenshot Location</string>
 </resources>

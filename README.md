@@ -1,8 +1,6 @@
 # Cyclemap App
 An Android app for offline usage of vector-tiles
 
-![Screen sample](app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png)
-
 ![Screen sample](docs/screenshot.png)
 
 
@@ -17,7 +15,7 @@ An Android app for offline usage of vector-tiles
 - [x] Interactive polyline distance measurement when clicking the crosshair
 - [x] Change map style (Cyclemap, Shadow, X-Ray, Mapbox, Satellite, ...)
 - [x] Load/show route (GPX) and metadata
-- [.] Record current track; Show while recording; Show metadata (length, time, ...)
+- [x] Record current track; Show while recording; Show metadata (length, time, ...)
 - [x] Save recorded track as GPX
 - [x] Show current speed while tracking
 - [.] Graceful handling of device orientation changes
@@ -25,6 +23,7 @@ An Android app for offline usage of vector-tiles
 - [x] Save Measurement as GPX
 - [ ] Share map position (Link, Text)
 - [ ] Favorite locations (add, delete, fly-to)
+- [ ] Geo Search; POI search 
 
 > x=done .=in progress 
 
