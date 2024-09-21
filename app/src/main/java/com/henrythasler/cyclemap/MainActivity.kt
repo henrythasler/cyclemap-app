@@ -59,7 +59,6 @@ class MainActivity : ComponentActivity() {
             resources.getString(R.string.longitude_name),
             resources.getString(R.string.longitude_default).toFloat()
         ).toDouble()
-
         val lat = sharedPref.getFloat(
             resources.getString(R.string.latitude_name),
             resources.getString(R.string.latitude_default).toFloat()

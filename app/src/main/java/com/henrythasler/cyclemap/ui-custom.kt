@@ -33,10 +33,8 @@ import java.text.DecimalFormat
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlin.math.exp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun SpeedDisplay(currentSpeed: Double, padding: PaddingValues) {
@@ -50,7 +48,7 @@ fun SpeedDisplay(currentSpeed: Double, padding: PaddingValues) {
                 .align(Alignment.Center)
                 .padding(padding),
             shape = RoundedCornerShape(radius),
-            color = colorResource(R.color.distanceMeasurementBadgeBackground),
+            color = colorResource(R.color.annotationBackground),
         ) {
             Text(
                 text = "${DecimalFormat("0.0").format(currentSpeed)} km/h",
@@ -79,7 +77,7 @@ fun RouteStatistics(distance: Double, waypointCount: Int, padding: PaddingValues
                 .padding(padding)
                 .padding(start = radius),
             shape = RoundedCornerShape(radius),
-            color = colorResource(R.color.distanceMeasurementBadgeBackground),
+            color = colorResource(R.color.annotationBackground),
         ) {
             Column(
                 modifier = Modifier.padding(
@@ -117,7 +115,7 @@ fun TrackStatistics(locations: List<Location>, trackRecording: Boolean, padding:
                 expanded = !expanded
             },
             shape = RoundedCornerShape(radius),
-            color = colorResource(R.color.distanceMeasurementBadgeBackground),
+            color = colorResource(R.color.annotationBackground),
         ) {
             val distance = measureDistance(locationToPoints(locations))
             val tripDuration: Duration = if (locations.isNotEmpty())

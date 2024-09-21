@@ -18,8 +18,11 @@ import java.io.File
 
 @Root(name = "gpx", strict = false)
 class Gpx {
-    @field:Element(name = "trk")
+    @field:Element(name = "trk", required = false)
     var track: Track? = null
+
+    @field:Element(name = "rte", required = false)
+    var route: Route? = null
 
     constructor() // Default no-arg constructor
 }
@@ -32,10 +35,29 @@ class Track {
     constructor() // Default no-arg constructor
 }
 
+@Root(name = "rte", strict = false)
+class Route {
+    @field:ElementList(inline = true, name = "rtept")
+    var routePoints: List<RoutePoint>? = null
+
+    constructor() // Default no-arg constructor
+}
+
 @Root(name = "trkseg", strict = false)
 class Segment {
     @field:ElementList(inline = true, name = "trkpt")
     var trackPoints: List<TrackPoint>? = null
+
+    constructor() // Default no-arg constructor
+}
+
+@Root(name = "rtept", strict = false)
+class RoutePoint {
+    @field:Attribute(name = "lat")
+    var latitude: Double = 0.0
+
+    @field:Attribute(name = "lon")
+    var longitude: Double = 0.0
 
     constructor() // Default no-arg constructor
 }

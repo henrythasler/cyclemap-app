@@ -41,6 +41,13 @@ data class StyleDefinition(
     val drawable: String,
 )
 
+data class Settings(
+    val style: String?,
+    val zoom: Double?,
+    val lat: Double?,
+    val lon: Double?,
+)
+
 fun parseStyleDefinitions(context: Context): List<StyleDefinition> {
     val inputStream = context.resources.openRawResource(R.raw.styles)
     val jsonString = inputStream.bufferedReader().use { it.readText() }

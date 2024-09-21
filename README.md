@@ -24,6 +24,7 @@ An Android app for offline usage of vector-tiles
 - [ ] Share map position (Link, Text)
 - [ ] Favorite locations (add, delete, fly-to)
 - [ ] Geo Search; POI search 
+- [ ] Persist map style over lifecycles
 
 > x=done .=in progress 
 

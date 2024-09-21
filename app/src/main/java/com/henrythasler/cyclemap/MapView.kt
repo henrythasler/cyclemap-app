@@ -3,7 +3,9 @@ package com.henrythasler.cyclemap
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.res.Configuration
+import android.location.Location
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
@@ -15,15 +17,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -42,6 +41,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -60,6 +60,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.constraintlayout.compose.ConstraintLayout
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.common.location.DeviceLocationProvider
@@ -90,11 +91,6 @@ import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
-import android.content.ServiceConnection
-import android.location.Location
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.constraintlayout.compose.ConstraintLayout
-import androidx.constraintlayout.widget.ConstraintLayout
 import kotlinx.coroutines.launch
 
 @OptIn(MapboxExperimental::class)
@@ -447,58 +443,55 @@ fun CycleMapView(
                 .padding(windowInsets),
             verticalArrangement = Arrangement.Center
         ) {
-            Row {
-                SmallFloatingActionButton(
-                    onClick = {
-                        showMainMenu = !showMainMenu
-                    },
-                ) {
-                    Icon(Icons.Filled.Menu, stringResource(R.string.button_menu_desc))
-                }
-
-                MainMenu(
-                    showMainMenu,
-                    onDismissRequest = {
-                        showMainMenu = false
-                    },
-                    onSelectMapStyle = {
-                        showMainMenu = false
-                        showStyleSelection = true
-                    },
-                    onLoadGpx = {
-                        showMainMenu = false
-                        launcher.launch("*/*")
-                    },
-                    onClearRoute = {
-                        showMainMenu = false
-                        showRoute = false
-                        routeLayer.data = GeoJSONData("")
-                    },
-                    onSaveGpx = {
-                        showMainMenu = false
-                        saveTrack.launch("track.gpx")
-                    },
-                    onDeleteTrack = {
-                        showMainMenu = false
-                        trackLocations = listOf()
-                        trackLayer.data = GeoJSONData("")
-                    },
-                    onAbout = {
-                        showMainMenu = false
-                        showAbout = true
-                    },
-                    onScreenshot = {
-                        showMainMenu = false
-                        followLocation = false
-                        sharedState.mapViewportState.setCameraOptions {
-                            center(Point.fromLngLat(10.897498, 48.279076))
-                            zoom(14.87486)
-                            pitch(0.0)
-                            bearing(0.0)
-                        }
-                    }
-                )
+            SmallFloatingActionButton(
+                onClick = {
+                    showMainMenu = !showMainMenu
+                },
+            ) {
+                Icon(Icons.Filled.Menu, stringResource(R.string.button_menu_desc))
             }
+            MainMenu(
+                showMainMenu,
+                onDismissRequest = {
+                    showMainMenu = false
+                },
+                onSelectMapStyle = {
+                    showMainMenu = false
+                    showStyleSelection = true
+                },
+                onLoadGpx = {
+                    showMainMenu = false
+                    launcher.launch("*/*")
+                },
+                onClearRoute = {
+                    showMainMenu = false
+                    showRoute = false
+                    routeLayer.data = GeoJSONData("")
+                },
+                onSaveGpx = {
+                    showMainMenu = false
+                    saveTrack.launch("track.gpx")
+                },
+                onDeleteTrack = {
+                    showMainMenu = false
+                    trackLocations = listOf()
+                    trackLayer.data = GeoJSONData("")
+                },
+                onAbout = {
+                    showMainMenu = false
+                    showAbout = true
+                },
+                onScreenshot = {
+                    showMainMenu = false
+                    followLocation = false
+                    sharedState.mapViewportState.setCameraOptions {
+                        center(Point.fromLngLat(10.897498, 48.279076))
+                        zoom(14.87486)
+                        pitch(0.0)
+                        bearing(0.0)
+                    }
+                }
+            )
 
             SmallFloatingActionButton(
                 onClick = {
@@ -528,7 +521,8 @@ fun CycleMapView(
                 Icon(
                     tint = if (trackLocation) colorResource(R.color.locationActiveTint) else Color.Unspecified,
                     painter = painterResource(id = R.drawable.baseline_location_on_24),
-                    contentDescription = stringResource(R.string.button_location_desc))
+                    contentDescription = stringResource(R.string.button_location_desc)
+                )
             }
 
             SmallFloatingActionButton(
