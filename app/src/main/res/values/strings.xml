@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">CycleMap3</string>
-    <string name="default_style">"https://www.cyclemap.link/cyclemap-style.json"</string>
     <string name="button_menu_desc">Show Main Menu</string>
     <string name="button_location_desc">Start location tracking</string>
     <string name="button_search_desc">Search for location or place</string>

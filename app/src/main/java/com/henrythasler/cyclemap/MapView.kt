@@ -34,6 +34,7 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
@@ -54,6 +55,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -61,6 +63,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.common.location.DeviceLocationProvider
@@ -92,24 +97,28 @@ import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
 import kotlinx.coroutines.launch
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
+
+// Create a top-level property for DataStore
+private val Context.dataStore by preferencesDataStore(name = "settings")
 
 @OptIn(MapboxExperimental::class)
 @Composable
 @Preview
-fun CycleMapView(
-    sharedState: SharedState = SharedState(),
-) {
+fun CycleMapView() {
     val mapState = rememberMapState {
         gesturesSettings = gesturesSettings.toBuilder()
             .setRotateEnabled(false)
             .setPitchEnabled(false)
             .build()
     }
+    val mapViewportState = rememberMapViewportState()
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val windowInsets = WindowInsets.systemBars.asPaddingValues()
 
-    var styleUrl by remember { mutableStateOf("https://www.cyclemap.link/cyclemap-style.json") }
-    var currentStyleId by remember { mutableStateOf("cyclemap") }
+    var currentStyleId by remember { mutableStateOf<String?>(null) }
 
     var requestLocationTracking by remember { mutableStateOf(false) }
     var locationPermission by remember { mutableStateOf(false) }
@@ -253,6 +262,70 @@ fun CycleMapView(
         }
     }
 
+    // Load initial values
+    val lifecycleOwner = LocalLifecycleOwner.current
+    if (currentStyleId == null) {
+        LaunchedEffect(Unit) {
+            context.dataStore.data.collect { preferences ->
+                mapViewportState.setCameraOptions {
+                    val lon =
+                        preferences[stringPreferencesKey(context.getString(R.string.longitude_name))]
+                            ?: context.getString(R.string.longitude_default)
+                    val lat =
+                        preferences[stringPreferencesKey(context.getString(R.string.latitude_name))]
+                            ?: context.getString(R.string.latitude_default)
+                    val zoom =
+                        preferences[stringPreferencesKey(context.getString(R.string.zoom_name))]
+                            ?: context.getString(R.string.zoom_default)
+                    currentStyleId =
+                        preferences[stringPreferencesKey(context.getString(R.string.style_name))]
+                            ?: context.getString(R.string.style_default)
+
+                    Log.i(
+                        TAG,
+                        "Restored state: zoom=$zoom, lon=$lon, lat=$lat, styleId=$currentStyleId"
+                    )
+                    center(Point.fromLngLat(lon.toDouble(), lat.toDouble()))
+                    zoom(zoom.toDouble())
+                    pitch(0.0)
+                    bearing(0.0)
+                }
+            }
+        }
+    }
+
+    // Set up auto-save on suspend
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                coroutineScope.launch {
+                    context.dataStore.edit { preferences ->
+                        Log.i(
+                            TAG,
+                            "saving current values: zoom=${mapViewportState.cameraState?.zoom}, lon=${mapViewportState.cameraState?.center?.longitude()}, lat=${mapViewportState.cameraState?.center?.latitude()}, styleId=$currentStyleId"
+                        )
+                        preferences[stringPreferencesKey(context.getString(R.string.longitude_name))] =
+                            mapViewportState.cameraState?.center?.longitude().toString()
+                        preferences[stringPreferencesKey(context.getString(R.string.latitude_name))] =
+                            mapViewportState.cameraState?.center?.latitude().toString()
+                        preferences[stringPreferencesKey(context.getString(R.string.zoom_name))] =
+                            mapViewportState.cameraState?.zoom.toString()
+                        currentStyleId?.let {
+                            preferences[stringPreferencesKey(context.getString(R.string.style_name))] =
+                                it
+                        }
+                    }
+                }
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -264,95 +337,99 @@ fun CycleMapView(
                 contentDescription = ""
             )
         } else {
-            MapboxMap(
-                modifier = Modifier.fillMaxSize(),
-                mapViewportState = sharedState.mapViewportState,
-                mapState = mapState,
-                style = {
-                    MapStyle(style = styleUrl)
-                },
-                scaleBar = {
-                    ScaleBar(
-                        Modifier.padding(windowInsets),
-                        alignment = Alignment.BottomEnd,
-                        height = 5.dp,
-                        borderWidth = 1.dp,
-                        isMetricUnit = true,
-                        textSize = 14.sp,
-                    )
-                },
-            ) {
-                MapEffect(key1 = trackLocation, Unit) { mapView ->
-                    mapView.location.updateSettings {
-                        locationPuck = createDefault2DPuck(withBearing = true)
-                        enabled = trackLocation
-                        showAccuracyRing = true
-                        puckBearingEnabled = true
-                        puckBearing = PuckBearing.HEADING
-                    }
+            val styleUrl = resolveStyleId(styleDefinitions, currentStyleId)
+            styleUrl?.let { style ->
 
-                    if (trackLocation) {
-                        sharedState.mapViewportState.transitionToFollowPuckState(
-                            followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
-                                .bearing(null).padding(null).pitch(null).zoom(null).build()
+                MapboxMap(
+                    modifier = Modifier.fillMaxSize(),
+                    mapViewportState = mapViewportState,
+                    mapState = mapState,
+                    style = {
+                        MapStyle(style = style)
+                    },
+                    scaleBar = {
+                        ScaleBar(
+                            Modifier.padding(windowInsets),
+                            alignment = Alignment.BottomEnd,
+                            height = 5.dp,
+                            borderWidth = 1.dp,
+                            isMetricUnit = true,
+                            textSize = 14.sp,
                         )
-                        followLocation = true
-
-                        Log.d(TAG, "addOnMoveListener")
-                        mapView.gestures.addOnMoveListener(onMoveListener)
-
-                        // request location updates for current speed indicator
-                        locationProvider =
-                            mapboxLocationService.getDeviceLocationProvider(null).value
-                        locationProvider?.run {
-                            addLocationObserver(locationObserver)
-                            Log.i(TAG, "location provider: ${getName()}")
+                    },
+                ) {
+                    MapEffect(key1 = trackLocation, Unit) { mapView ->
+                        mapView.location.updateSettings {
+                            locationPuck = createDefault2DPuck(withBearing = true)
+                            enabled = trackLocation
+                            showAccuracyRing = true
+                            puckBearingEnabled = true
+                            puckBearing = PuckBearing.HEADING
                         }
-                    } else {
-                        sharedState.mapViewportState.idle()
-                        Log.d(TAG, "removeOnMoveListener")
-                        mapView.gestures.removeOnMoveListener(onMoveListener)
-                        locationProvider?.run {
-                            removeLocationObserver(locationObserver)
+
+                        if (trackLocation) {
+                            mapViewportState.transitionToFollowPuckState(
+                                followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
+                                    .bearing(null).padding(null).pitch(null).zoom(null).build()
+                            )
+                            followLocation = true
+
+                            Log.d(TAG, "addOnMoveListener")
+                            mapView.gestures.addOnMoveListener(onMoveListener)
+
+                            // request location updates for current speed indicator
+                            locationProvider =
+                                mapboxLocationService.getDeviceLocationProvider(null).value
+                            locationProvider?.run {
+                                addLocationObserver(locationObserver)
+                                Log.i(TAG, "location provider: ${getName()}")
+                            }
+                        } else {
+                            mapViewportState.idle()
+                            Log.d(TAG, "removeOnMoveListener")
+                            mapView.gestures.removeOnMoveListener(onMoveListener)
+                            locationProvider?.run {
+                                removeLocationObserver(locationObserver)
+                            }
                         }
                     }
-                }
 
-                if (showRoute) {
+                    if (showRoute) {
+                        LineLayer(
+                            sourceState = routeLayer,
+                            lineWidth = DoubleValue(11.0),
+                            lineOpacity = DoubleValue(0.75),
+                            lineCap = LineCapValue.ROUND,
+                            lineJoin = LineJoinValue.ROUND,
+                            lineColor = ColorValue(colorResource(R.color.routeLine)),
+                            lineBorderWidth = DoubleValue(1.0),
+                            lineBorderColor = ColorValue(colorResource(R.color.routeLineCasing)),
+                        )
+                    }
+
+                    // always show the recorded track for future reference even after recording was stopped
                     LineLayer(
-                        sourceState = routeLayer,
+                        sourceState = trackLayer,
                         lineWidth = DoubleValue(11.0),
                         lineOpacity = DoubleValue(0.75),
                         lineCap = LineCapValue.ROUND,
                         lineJoin = LineJoinValue.ROUND,
-                        lineColor = ColorValue(colorResource(R.color.routeLine)),
+                        lineColor = ColorValue(colorResource(R.color.trackLine)),
                         lineBorderWidth = DoubleValue(1.0),
-                        lineBorderColor = ColorValue(colorResource(R.color.routeLineCasing)),
+                        lineBorderColor = ColorValue(colorResource(R.color.trackLineCasing)),
                     )
-                }
 
-                // always show the recorded track for future reference even after recording was stopped
-                LineLayer(
-                    sourceState = trackLayer,
-                    lineWidth = DoubleValue(11.0),
-                    lineOpacity = DoubleValue(0.75),
-                    lineCap = LineCapValue.ROUND,
-                    lineJoin = LineJoinValue.ROUND,
-                    lineColor = ColorValue(colorResource(R.color.trackLine)),
-                    lineBorderWidth = DoubleValue(1.0),
-                    lineBorderColor = ColorValue(colorResource(R.color.trackLineCasing)),
-                )
-
-                if (distanceMeasurement) {
-                    LineLayer(
-                        sourceState = distanceMeasurementLayer,
-                        lineWidth = DoubleValue(7.0),
-                        lineCap = LineCapValue.ROUND,
-                        lineJoin = LineJoinValue.ROUND,
-                        lineColor = ColorValue(colorResource(R.color.distanceMeasurementLine)),
-                        lineBorderWidth = DoubleValue(1.0),
-                        lineBorderColor = ColorValue(colorResource(R.color.distanceMeasurementLineCasing)),
-                    )
+                    if (distanceMeasurement) {
+                        LineLayer(
+                            sourceState = distanceMeasurementLayer,
+                            lineWidth = DoubleValue(7.0),
+                            lineCap = LineCapValue.ROUND,
+                            lineJoin = LineJoinValue.ROUND,
+                            lineColor = ColorValue(colorResource(R.color.distanceMeasurementLine)),
+                            lineBorderWidth = DoubleValue(1.0),
+                            lineBorderColor = ColorValue(colorResource(R.color.distanceMeasurementLineCasing)),
+                        )
+                    }
                 }
             }
         }
@@ -360,7 +437,7 @@ fun CycleMapView(
         // Listen for camera movements when tracking is enabled
         LaunchedEffect(distanceMeasurement) {
             if (distanceMeasurement) {
-                snapshotFlow { sharedState.mapViewportState.cameraState!!.center }
+                snapshotFlow { mapViewportState.cameraState!!.center }
                     .collect { center ->
                         // add current position temporarily to calculate the distance while dragging
                         val points = distanceMeasurementPoints.toMutableList()
@@ -408,7 +485,7 @@ fun CycleMapView(
                             distanceMeasurement = false
                         } else {
                             distanceMeasurement = true
-                            sharedState.mapViewportState.cameraState?.let {
+                            mapViewportState.cameraState?.let {
                                 distanceMeasurementPoints = distanceMeasurementPoints + it.center
                             }
                             distance = measureDistance(distanceMeasurementPoints)
@@ -484,7 +561,7 @@ fun CycleMapView(
                 onScreenshot = {
                     showMainMenu = false
                     followLocation = false
-                    sharedState.mapViewportState.setCameraOptions {
+                    mapViewportState.setCameraOptions {
                         center(Point.fromLngLat(10.897498, 48.279076))
                         zoom(14.87486)
                         pitch(0.0)
@@ -497,7 +574,7 @@ fun CycleMapView(
                 onClick = {
                     if (trackLocation) {
                         if (!followLocation) {
-                            sharedState.mapViewportState.transitionToFollowPuckState(
+                            mapViewportState.transitionToFollowPuckState(
                                 followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
                                     .bearing(null).padding(null).pitch(null).zoom(null).build(),
                                 defaultTransitionOptions = DefaultViewportTransitionOptions.Builder()
@@ -606,22 +683,19 @@ fun CycleMapView(
         }
 
         if (showStyleSelection) {
-            StyleSelectionSheet(
-                onDismiss = {
+            currentStyleId?.let {
+                StyleSelectionSheet(
+                    onDismiss = {
+                        showStyleSelection = false
+                    },
+                    styleDefinitions = styleDefinitions,
+                    currentStyle = it
+                )
+                { styleDefinition ->
+                    Log.i(TAG, "selected $styleDefinition")
+                    currentStyleId = styleDefinition.styleId
                     showStyleSelection = false
-                },
-                styleDefinitions = styleDefinitions,
-                currentStyle = currentStyleId
-            )
-            { styleDefinition ->
-                Log.i(TAG, "selected $styleDefinition")
-                currentStyleId = styleDefinition.styleId
-                if (styleDefinition.styleSource.startsWith("http")) {
-                    styleUrl = styleDefinition.styleSource
-                } else {
-                    mapboxStyleIdMapping[styleDefinition.styleSource]?.let { styleUrl = it }
                 }
-                showStyleSelection = false
             }
         }
 
@@ -685,7 +759,7 @@ fun CycleMapView(
                     GeoJSONData(routeGeometry)
                 showRoute = true
                 followLocation = false
-                sharedState.mapViewportState.transitionToOverviewState(
+                mapViewportState.transitionToOverviewState(
                     overviewViewportStateOptions = OverviewViewportStateOptions.Builder()
                         .geometry(routeGeometry)
                         .padding(EdgeInsets(200.0, 200.0, 200.0, 200.0))

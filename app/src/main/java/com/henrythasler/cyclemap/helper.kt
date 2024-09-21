@@ -34,6 +34,23 @@ fun locationToPoints(locations: List<Location>): List<Point> {
     return points
 }
 
+fun resolveStyleSource(styleDefinition: StyleDefinition?): String? {
+    styleDefinition?.let {
+        if (styleDefinition.styleSource.startsWith("http")) {
+            return styleDefinition.styleSource
+        } else {
+            mapboxStyleIdMapping[styleDefinition.styleSource]?.let { return it }
+        }
+    }
+    return null
+}
+
+fun resolveStyleId(styleDefinitions: List<StyleDefinition>, id: String?): String? {
+    val styleDefinition = styleDefinitions.find { it.styleId == id }
+    styleDefinition?.let { return resolveStyleSource(styleDefinition) }
+    return null
+}
+
 data class StyleDefinition(
     val styleName: String,
     val styleId: String,

@@ -8,6 +8,8 @@
     <item name="latitude_name" type="string">latitude</item>
     <item name="latitude_default" type="string">48.05</item>
     <item name="storage_path_name" type="string">storage_path</item>
+    <item name="style_name" type="string">style</item>
+    <item name="style_default" type="string">cyclemap</item>
 
 <!-- Location Service Configuration -->
     <item name="location_update_interval_ms" type="integer">1000</item>
