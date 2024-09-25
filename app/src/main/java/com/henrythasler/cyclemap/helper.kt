@@ -10,6 +10,8 @@ import com.mapbox.maps.Style
 import com.mapbox.turf.TurfConstants
 import com.mapbox.turf.TurfMeasurement
 import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
 
 fun getFormattedDistance(distance: Double): String {
     return if (distance > 5000) {
@@ -17,6 +19,16 @@ fun getFormattedDistance(distance: Double): String {
     } else {
         DecimalFormat("# m").format(distance)
     }
+}
+
+fun getFormattedLocation(point: Point?): String {
+    return "${DecimalFormat(
+        "#.0000°",
+        DecimalFormatSymbols.getInstance(Locale.ENGLISH)
+    ).format(point?.latitude())}, ${DecimalFormat(
+        "#.0000°",
+        DecimalFormatSymbols.getInstance(Locale.ENGLISH)
+    ).format(point?.longitude())}"
 }
 
 fun measureDistance(lineString: List<Point>): Double {
@@ -56,13 +68,6 @@ data class StyleDefinition(
     val styleId: String,
     val styleSource: String,
     val drawable: String,
-)
-
-data class Settings(
-    val style: String?,
-    val zoom: Double?,
-    val lat: Double?,
-    val lon: Double?,
 )
 
 fun parseStyleDefinitions(context: Context): List<StyleDefinition> {

@@ -97,7 +97,7 @@ class LocationService : Service() {
     private fun requestLocationUpdates() {
         val request =
             LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, LOCATION_UPDATE_INTERVAL)
-//                .setMinUpdateDistanceMeters(MIN_UPDATE_DISTANCE_METERS)
+                .setMinUpdateDistanceMeters(MIN_UPDATE_DISTANCE_METERS)
                 .build()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 

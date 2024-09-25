@@ -66,10 +66,15 @@ import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.android.gestures.MoveGestureDetector
+import com.mapbox.common.location.AccuracyLevel
 import com.mapbox.common.location.DeviceLocationProvider
+import com.mapbox.common.location.IntervalSettings
 import com.mapbox.common.location.LocationObserver
+import com.mapbox.common.location.LocationProviderRequest
 import com.mapbox.common.location.LocationServiceFactory
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
@@ -78,6 +83,7 @@ import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.ScreenCoordinate
 import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
+import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
 import com.mapbox.maps.extension.compose.rememberMapState
 import com.mapbox.maps.extension.compose.style.ColorValue
 import com.mapbox.maps.extension.compose.style.DoubleValue
@@ -97,9 +103,6 @@ import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
 import kotlinx.coroutines.launch
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
 
 // Create a top-level property for DataStore
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -127,6 +130,10 @@ fun CycleMapView() {
     var distanceMeasurement by remember { mutableStateOf(false) }
     var distance by remember { mutableDoubleStateOf(0.0) }
 
+    var highlightedBuilding by remember {
+        mutableStateOf(emptyList<List<Point>>())
+    }
+
     var trackLocations by remember { mutableStateOf(listOf<Location>()) }
     var showRoute by remember { mutableStateOf(false) }
     var trackLocation by remember { mutableStateOf(false) }
@@ -134,10 +141,12 @@ fun CycleMapView() {
     var recordLocation by remember { mutableStateOf(false) }
     var showMainMenu by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+    var showLocationDetails by remember { mutableStateOf(false) }
     var showStyleSelection by remember { mutableStateOf(false) }
     var permissionRequestCount by remember { mutableIntStateOf(1) }
     var showRequestPermissionButton by remember { mutableStateOf(false) }
     var lastClick by remember { mutableLongStateOf(0L) }
+    var clickedPoint by remember { mutableStateOf<Point?>(null) }
 
     val context = LocalContext.current
     var locationService by remember { mutableStateOf<LocationService?>(null) }
@@ -357,6 +366,21 @@ fun CycleMapView() {
                             textSize = 14.sp,
                         )
                     },
+                    onMapLongClickListener = {
+                        clickedPoint = it
+                        showLocationDetails = true
+//                        coroutineScope.launch {
+//                            val selectedFeatures = mapState.queryRenderedFeatures(
+//                                geometry = RenderedQueryGeometry(mapState.pixelForCoordinate(clickedPoint)),
+//                                options = RenderedQueryOptions(null, null)
+//                            )
+//                            selectedFeatures.value?.forEach { feature ->
+//                                Log.i(TAG, feature.queriedFeature.feature.geometry().toString())
+//                                highlightedBuilding = (feature.queriedFeature.feature.geometry() as? Polygon)?.coordinates()?.toList() ?: emptyList()
+//                            }
+//                        }
+                        false
+                    }
                 ) {
                     MapEffect(key1 = trackLocation, Unit) { mapView ->
                         mapView.location.updateSettings {
@@ -378,8 +402,13 @@ fun CycleMapView() {
                             mapView.gestures.addOnMoveListener(onMoveListener)
 
                             // request location updates for current speed indicator
-                            locationProvider =
-                                mapboxLocationService.getDeviceLocationProvider(null).value
+                            locationProvider = mapboxLocationService.getDeviceLocationProvider(
+                                LocationProviderRequest.Builder()
+                                    .interval(IntervalSettings.Builder().interval(1000L).build())
+                                    .accuracy(AccuracyLevel.MEDIUM) // not higher, otherwise it will always acquire location
+                                    .displacement(0f)
+                                    .build()
+                            ).value
                             locationProvider?.run {
                                 addLocationObserver(locationObserver)
                                 Log.i(TAG, "location provider: ${getName()}")
@@ -393,6 +422,18 @@ fun CycleMapView() {
                             }
                         }
                     }
+//                    PolygonAnnotation(
+//                        points = highlightedBuilding,
+//                        fillOpacity = 0.5
+//                    )
+//                    clickedPoint?.let {
+//                        PointAnnotation(
+//                            point = it,
+////                            iconImage = painterResource(id = R.drawable.baseline_location_pin_96).drawToBitmap().asAndroidBitmap()
+////                            iconImage = BitmapFactory.decodeResource(context.resources, R.drawable.baseline_location_pin_96),
+//                            textField = "Here!"
+//                        )
+//                    }
 
                     if (showRoute) {
                         LineLayer(
@@ -652,7 +693,6 @@ fun CycleMapView() {
             }
         }
 
-
         if (requestLocationTracking) {
             RequestLocationPermission(
                 requestCount = permissionRequestCount,
@@ -731,6 +771,29 @@ fun CycleMapView() {
                 TextButton(
                     onClick = {
                         showAbout = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    if(showLocationDetails) {
+        AlertDialog(
+            title = {
+                Text(text = "Location Details")
+            },
+            text = {
+                Text(text = getFormattedLocation(clickedPoint))
+            },
+            onDismissRequest = {
+                showLocationDetails = false
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLocationDetails = false
                     }
                 ) {
                     Text("OK")
