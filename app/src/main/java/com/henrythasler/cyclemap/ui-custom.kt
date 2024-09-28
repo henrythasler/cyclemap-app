@@ -2,16 +2,21 @@ package com.henrythasler.cyclemap
 
 import android.location.Location
 import android.text.format.DateUtils
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,8 +32,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import com.mapbox.geojson.Point
+import com.mapbox.maps.ScreenCoordinate
 import java.text.DecimalFormat
 import java.time.Instant
 import java.time.ZoneId
@@ -269,3 +279,131 @@ fun MainMenu(
         )
     }
 }
+
+@Composable
+fun MapContextMenu(
+    clickedPoint: ScreenCoordinate?,
+    showContextMenu: Boolean,
+    onDismissRequest: () -> Unit,
+    onBookmarkLocation: () -> Unit,
+    onShareLocation: () -> Unit,
+    onLocationDetails: () -> Unit,
+) {
+    DropdownMenu(
+        expanded = showContextMenu,
+        offset = clickedPoint?.let { DpOffset(it.x.dp, it.y.dp) } ?: DpOffset(48.dp, 0.dp),
+        onDismissRequest = onDismissRequest,
+    ) {
+        DropdownMenuItem(
+            text = {
+                Text(text = stringResource(R.string.menu_map_context_bookmark))
+            },
+            onClick = onBookmarkLocation,
+            leadingIcon = {
+                Icon(
+                    painterResource(id = R.drawable.baseline_bookmark_add_24),
+                    stringResource(R.string.menu_map_context_bookmark)
+                )
+            }
+        )
+        DropdownMenuItem(
+            text = {
+                Text(text = stringResource(R.string.menu_map_context_share))
+            },
+            onClick = onShareLocation,
+            leadingIcon = {
+                Icon(
+                    painterResource(id = R.drawable.baseline_share_24),
+                    stringResource(R.string.menu_map_context_share)
+                )
+            }
+        )
+        DropdownMenuItem(
+            text = {
+                Text(text = stringResource(R.string.menu_map_context_details))
+            },
+            onClick = onLocationDetails,
+            leadingIcon = {
+                Icon(
+                    painterResource(id = R.drawable.baseline_data_object_24),
+                    stringResource(R.string.menu_map_context_share)
+                )
+            }
+        )
+    }
+}
+
+@Composable
+fun DropdownMenuContent(
+    header: String,
+    clickedPoint: ScreenCoordinate?,
+    onBookmarkLocation: () -> Unit,
+    onShareLocation: () -> Unit,
+    onLocationDetails: () -> Unit,
+    onDismiss: () -> Unit) {
+    val radius = 8.dp
+    Popup(
+        properties = PopupProperties(focusable = true),
+        offset = clickedPoint?.let { IntOffset(it.x.toInt(), it.y.toInt()) } ?: IntOffset(0, 0),
+        onDismissRequest = onDismiss
+    ) {
+        Surface(
+            shape = RoundedCornerShape(radius),
+            color = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier.width(150.dp),
+            ) {
+                Text(
+                    text = header,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(
+                        start = radius,
+                        end = radius,
+                        top = radius / 2,
+                        bottom = radius / 2
+                    )
+
+                    )
+                HorizontalDivider()
+                DropdownMenuItem(
+                    text = {
+                        Text(text = stringResource(R.string.menu_map_context_bookmark))
+                    },
+                    onClick = onBookmarkLocation,
+                    leadingIcon = {
+                        Icon(
+                            painterResource(id = R.drawable.baseline_bookmark_add_24),
+                            stringResource(R.string.menu_map_context_bookmark)
+                        )
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(text = stringResource(R.string.menu_map_context_share))
+                    },
+                    onClick = onShareLocation,
+                    leadingIcon = {
+                        Icon(
+                            painterResource(id = R.drawable.baseline_share_24),
+                            stringResource(R.string.menu_map_context_share)
+                        )
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(text = stringResource(R.string.menu_map_context_details))
+                    },
+                    onClick = onLocationDetails,
+                    leadingIcon = {
+                        Icon(
+                            painterResource(id = R.drawable.baseline_data_object_24),
+                            stringResource(R.string.menu_map_context_share)
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+

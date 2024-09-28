@@ -11,4 +11,7 @@
     <string name="menu_delete_track">Clear Track</string>
     <string name="menu_about">About</string>
     <string name="menu_screenshot">Screenshot Location</string>
+    <string name="menu_map_context_bookmark">Bookmark</string>
+    <string name="menu_map_context_share">Share</string>
+    <string name="menu_map_context_details">Details</string>
 </resources>

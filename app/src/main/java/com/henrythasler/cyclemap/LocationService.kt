@@ -24,14 +24,16 @@ class LocationService : Service() {
     private val binder = LocalBinder()
 
     /** methods and properties for clients  */
-    private val _currentLocation = MutableStateFlow<Location?>(null)
-    val currentLocation: StateFlow<Location?> = _currentLocation
+//    private val _currentLocation = MutableStateFlow<Location?>(null)
+//    val currentLocation: StateFlow<Location?> = _currentLocation
+    var locations: MutableList<Location> = mutableListOf()
 
     private var fusedLocationClient: FusedLocationProviderClient? = null
 
     private var locationCallback: LocationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
-            _currentLocation.value = locationResult.lastLocation
+            locationResult.lastLocation?.let { locations.add(it) }
+//            _currentLocation.value = locationResult.lastLocation
         }
     }
 

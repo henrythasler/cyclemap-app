@@ -25,6 +25,7 @@ An Android app for offline usage of vector-tiles
 - [ ] Favorite locations (add, delete, fly-to)
 - [ ] Geo Search; POI search 
 - [x] Persist map style over lifecycles
+- [ ] Remove last measurement point on crosshair long-press
 
 > x=done .=in progress 
 

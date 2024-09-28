@@ -78,12 +78,16 @@ import com.mapbox.common.location.LocationProviderRequest
 import com.mapbox.common.location.LocationServiceFactory
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
+import com.mapbox.geojson.Polygon
 import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.MapboxExperimental
+import com.mapbox.maps.RenderedQueryGeometry
+import com.mapbox.maps.RenderedQueryOptions
 import com.mapbox.maps.ScreenCoordinate
 import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
 import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
+import com.mapbox.maps.extension.compose.annotation.generated.PolygonAnnotation
 import com.mapbox.maps.extension.compose.rememberMapState
 import com.mapbox.maps.extension.compose.style.ColorValue
 import com.mapbox.maps.extension.compose.style.DoubleValue
@@ -102,6 +106,7 @@ import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // Create a top-level property for DataStore
@@ -134,7 +139,8 @@ fun CycleMapView() {
         mutableStateOf(emptyList<List<Point>>())
     }
 
-    var trackLocations by remember { mutableStateOf(listOf<Location>()) }
+//    var trackLocations by remember { mutableStateOf(listOf<Location>()) }
+    var trackLength by remember { mutableIntStateOf(0) }
     var showRoute by remember { mutableStateOf(false) }
     var trackLocation by remember { mutableStateOf(false) }
     var followLocation by remember { mutableStateOf(false) }
@@ -147,6 +153,7 @@ fun CycleMapView() {
     var showRequestPermissionButton by remember { mutableStateOf(false) }
     var lastClick by remember { mutableLongStateOf(0L) }
     var clickedPoint by remember { mutableStateOf<Point?>(null) }
+    var clickedScreenCoordinate by remember { mutableStateOf<ScreenCoordinate?>(null) }
 
     val context = LocalContext.current
     var locationService by remember { mutableStateOf<LocationService?>(null) }
@@ -200,7 +207,7 @@ fun CycleMapView() {
             Log.i(TAG, "saving track to: ${it.path}")
             coroutineScope.launch {
                 val trackSegment: MutableList<TrackPoint> = mutableListOf()
-                trackLocations.forEach { point ->
+                locationService?.locations?.forEach { point ->
                     trackSegment.add(TrackPoint().apply {
                         latitude = point.latitude
                         longitude = point.longitude
@@ -348,7 +355,6 @@ fun CycleMapView() {
         } else {
             val styleUrl = resolveStyleId(styleDefinitions, currentStyleId)
             styleUrl?.let { style ->
-
                 MapboxMap(
                     modifier = Modifier.fillMaxSize(),
                     mapViewportState = mapViewportState,
@@ -369,6 +375,11 @@ fun CycleMapView() {
                     onMapLongClickListener = {
                         clickedPoint = it
                         showLocationDetails = true
+                        coroutineScope.launch {
+                            clickedPoint?.let { point ->
+                                clickedScreenCoordinate = mapState.pixelForCoordinate(point)
+                            }
+                        }
 //                        coroutineScope.launch {
 //                            val selectedFeatures = mapState.queryRenderedFeatures(
 //                                geometry = RenderedQueryGeometry(mapState.pixelForCoordinate(clickedPoint)),
@@ -422,10 +433,17 @@ fun CycleMapView() {
                             }
                         }
                     }
-//                    PolygonAnnotation(
-//                        points = highlightedBuilding,
-//                        fillOpacity = 0.5
-//                    )
+
+                    if (highlightedBuilding.isNotEmpty()) {
+                        PolygonAnnotation(
+                            points = highlightedBuilding,
+                            fillOpacity = 0.5,
+                            onClick = {
+                                highlightedBuilding = emptyList();
+                                false
+                            }
+                        )
+                    }
 //                    clickedPoint?.let {
 //                        PointAnnotation(
 //                            point = it,
@@ -475,6 +493,52 @@ fun CycleMapView() {
             }
         }
 
+        if (showLocationDetails) {
+            DropdownMenuContent(
+                getFormattedLocation(clickedPoint),
+                clickedScreenCoordinate,
+                onDismiss = {
+                    showLocationDetails = false
+                },
+                onLocationDetails = {
+                    showLocationDetails = false
+                    coroutineScope.launch {
+                        val selectedFeatures = mapState.queryRenderedFeatures(
+                            geometry = RenderedQueryGeometry(clickedScreenCoordinate!!),
+                            options = RenderedQueryOptions(null, null)
+                        )
+                        selectedFeatures.value?.forEach { feature ->
+                            highlightedBuilding =
+                                (feature.queriedFeature.feature.geometry() as? Polygon)?.coordinates()
+                                    ?.toList() ?: emptyList()
+                        }
+                    }
+                },
+                onBookmarkLocation = {
+                    showLocationDetails = false
+                },
+                onShareLocation = {
+                    showLocationDetails = false
+                }
+            )
+        }
+//        MapContextMenu(
+//            null,
+//            showLocationDetails,
+//            onDismissRequest = {
+//                showLocationDetails = false
+//            },
+//            onLocationDetails = {
+//                showLocationDetails = false
+//            },
+//            onBookmarkLocation = {
+//                showLocationDetails = false
+//            },
+//            onShareLocation = {
+//                showLocationDetails = false
+//            }
+//        )
+
         // Listen for camera movements when tracking is enabled
         LaunchedEffect(distanceMeasurement) {
             if (distanceMeasurement) {
@@ -491,13 +555,24 @@ fun CycleMapView() {
 
         LaunchedEffect(locationServiceBound) {
             if (locationServiceBound) {
-                locationService?.currentLocation?.collect { location ->
-                    location?.let {
-                        trackLocations += location
-                        trackLayer.data =
-                            GeoJSONData(LineString.fromLngLats(locationToPoints(trackLocations)))
+                while (true) {
+                    locationService?.locations?.let {
+                        if(it.size != trackLength) {
+                            trackLength = it.size
+                            Log.i(TAG, it.size.toString())
+                            trackLayer.data =
+                                GeoJSONData(LineString.fromLngLats(locationToPoints(it.toList())))
+                        }
                     }
+                    delay(1000)
                 }
+//                locationService?.currentLocation?.collect { location ->
+//                    location?.let {
+//                        trackLocations += location
+//                        trackLayer.data =
+//                            GeoJSONData(LineString.fromLngLats(locationToPoints(trackLocations)))
+//                    }
+//                }
             }
         }
 
@@ -592,7 +667,7 @@ fun CycleMapView() {
                 },
                 onDeleteTrack = {
                     showMainMenu = false
-                    trackLocations = listOf()
+                    locationService?.locations = mutableListOf()
                     trackLayer.data = GeoJSONData("")
                 },
                 onAbout = {
@@ -743,8 +818,14 @@ fun CycleMapView() {
             SpeedDisplay(currentSpeed, windowInsets)
         }
 
-        if (recordLocation || trackLocations.size > 1) {
-            TrackStatistics(trackLocations, recordLocation, windowInsets)
+        if (recordLocation) {
+            locationService?.let {
+                TrackStatistics(
+                    it.locations.toList(),
+                    recordLocation,
+                    windowInsets
+                )
+            }
         }
 
         if (showRoute) {
@@ -771,29 +852,6 @@ fun CycleMapView() {
                 TextButton(
                     onClick = {
                         showAbout = false
-                    }
-                ) {
-                    Text("OK")
-                }
-            }
-        )
-    }
-
-    if(showLocationDetails) {
-        AlertDialog(
-            title = {
-                Text(text = "Location Details")
-            },
-            text = {
-                Text(text = getFormattedLocation(clickedPoint))
-            },
-            onDismissRequest = {
-                showLocationDetails = false
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showLocationDetails = false
                     }
                 ) {
                     Text("OK")

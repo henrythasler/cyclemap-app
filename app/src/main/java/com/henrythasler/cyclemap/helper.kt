@@ -9,6 +9,8 @@ import com.mapbox.geojson.Point
 import com.mapbox.maps.Style
 import com.mapbox.turf.TurfConstants
 import com.mapbox.turf.TurfMeasurement
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -21,14 +23,13 @@ fun getFormattedDistance(distance: Double): String {
     }
 }
 
-fun getFormattedLocation(point: Point?): String {
-    return "${DecimalFormat(
-        "#.0000°",
-        DecimalFormatSymbols.getInstance(Locale.ENGLISH)
-    ).format(point?.latitude())}, ${DecimalFormat(
-        "#.0000°",
-        DecimalFormatSymbols.getInstance(Locale.ENGLISH)
-    ).format(point?.longitude())}"
+fun getFormattedLocation(point: Point?, decimals: Int = 2): String {
+    point?.let {
+        val lat = BigDecimal(it.latitude()).setScale(decimals, RoundingMode.HALF_UP)
+        val lon = BigDecimal(it.longitude()).setScale(decimals, RoundingMode.HALF_UP)
+        return "${lat}°, ${lon}°"
+    }
+    return ""
 }
 
 fun measureDistance(lineString: List<Point>): Double {
