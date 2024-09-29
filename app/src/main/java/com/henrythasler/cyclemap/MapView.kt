@@ -1,14 +1,17 @@
 package com.henrythasler.cyclemap
 
+import android.Manifest
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.location.Location
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -48,13 +51,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -63,19 +65,19 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.core.app.ActivityCompat
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.android.gestures.MoveGestureDetector
-import com.mapbox.common.location.AccuracyLevel
-import com.mapbox.common.location.DeviceLocationProvider
-import com.mapbox.common.location.IntervalSettings
-import com.mapbox.common.location.LocationObserver
-import com.mapbox.common.location.LocationProviderRequest
-import com.mapbox.common.location.LocationServiceFactory
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.geojson.Polygon
@@ -106,7 +108,6 @@ import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // Create a top-level property for DataStore
@@ -125,6 +126,7 @@ fun CycleMapView() {
     val mapViewportState = rememberMapViewportState()
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val windowInsets = WindowInsets.systemBars.asPaddingValues()
+    var crosshairPosition by remember { mutableStateOf<Rect?>(null) }
 
     var currentStyleId by remember { mutableStateOf<String?>(null) }
 
@@ -139,7 +141,6 @@ fun CycleMapView() {
         mutableStateOf(emptyList<List<Point>>())
     }
 
-//    var trackLocations by remember { mutableStateOf(listOf<Location>()) }
     var isVisible by remember { mutableStateOf(false) }
     var trackLocations by remember { mutableStateOf<List<Location>>(emptyList()) }
     var showRoute by remember { mutableStateOf(false) }
@@ -179,10 +180,6 @@ fun CycleMapView() {
     var currentSpeed by remember { mutableDoubleStateOf(0.0) }
     var routeDistance by remember { mutableDoubleStateOf(0.0) }
     var waypointCount by remember { mutableIntStateOf(0) }
-
-    val mapboxLocationService: com.mapbox.common.location.LocationService =
-        LocationServiceFactory.getOrCreate()
-    var locationProvider: DeviceLocationProvider? = null
 
     val distanceMeasurementLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
     val routeLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
@@ -240,9 +237,14 @@ fun CycleMapView() {
     }
 
     // location stuff
-    val locationObserver = remember {
-        LocationObserver { location ->
-            location.last().speed?.times(3.6)?.let { currentSpeed = it }
+    val fusedLocationClient = remember {
+        LocationServices.getFusedLocationProviderClient(context)
+    }
+    val locationCallback = remember {
+        object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                locationResult.lastLocation?.let { last -> currentSpeed = last.speed * 3.6 }
+            }
         }
     }
 
@@ -349,7 +351,7 @@ fun CycleMapView() {
         }
     }
 
-    Log.i(TAG, "Composing (${trackLocations.size})")
+    Log.d(TAG, "Composing (${trackLocations.size})")
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -411,26 +413,10 @@ fun CycleMapView() {
 
                         Log.d(TAG, "addOnMoveListener")
                         mapView.gestures.addOnMoveListener(onMoveListener)
-
-                        // request location updates for current speed indicator
-                        locationProvider = mapboxLocationService.getDeviceLocationProvider(
-                            LocationProviderRequest.Builder()
-                                .interval(IntervalSettings.Builder().interval(1000L).build())
-                                .accuracy(AccuracyLevel.MEDIUM) // not higher, otherwise it will always acquire location
-                                .displacement(0f)
-                                .build()
-                        ).value
-                        locationProvider?.run {
-                            addLocationObserver(locationObserver)
-                            Log.i(TAG, "location provider: ${getName()}")
-                        }
                     } else {
                         mapViewportState.idle()
                         Log.d(TAG, "removeOnMoveListener")
                         mapView.gestures.removeOnMoveListener(onMoveListener)
-                        locationProvider?.run {
-                            removeLocationObserver(locationObserver)
-                        }
                     }
                 }
 
@@ -599,17 +585,8 @@ fun CycleMapView() {
                     }
                     .onGloballyPositioned { coordinates ->
                         // This will give us the screen coordinates
-                        val screenPos = coordinates.boundsInWindow()
-                        Log.i(TAG, "Crosshair Center: $screenPos")
-                        mapState.gesturesSettings = mapState.gesturesSettings
-                            .toBuilder()
-                            .setFocalPoint(
-                                ScreenCoordinate(
-                                    screenPos.center.x.toDouble(),
-                                    screenPos.center.y.toDouble()
-                                )
-                            )
-                            .build()
+                        crosshairPosition = coordinates.boundsInWindow()
+                        Log.i(TAG, "new Crosshair Center: ${crosshairPosition?.center}")
                     },
                 painter = painterResource(id = R.drawable.my_location_48px),
                 contentDescription = "Crosshair",
@@ -811,6 +788,46 @@ fun CycleMapView() {
 
         if (showRoute) {
             RouteStatistics(routeDistance, waypointCount, windowInsets)
+        }
+    }
+
+    /** observe location to show current speed */
+    DisposableEffect(trackLocation, isVisible) {
+        val locationRequest =
+            LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 1000)
+                .setWaitForAccurateLocation(false)
+                .setMinUpdateIntervalMillis(1000)
+                .setMaxUpdateDelayMillis(2000)
+                .build()
+
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED && trackLocation && isVisible
+        ) {
+            Log.d(TAG, "requestLocationUpdates")
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                Looper.getMainLooper()
+            )
+        } else {
+            Log.d(TAG, "removeLocationUpdates")
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
+
+        onDispose {
+            Log.d(TAG, "onDispose removeLocationUpdates")
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
+    }
+
+    LaunchedEffect(key1 = crosshairPosition) {
+        Log.d(TAG, "crosshairPosition=${crosshairPosition?.center}")
+        crosshairPosition?.let {
+            mapState.gesturesSettings = mapState.gesturesSettings.toBuilder()
+                .setFocalPoint(ScreenCoordinate(it.center.x.toDouble(), it.center.y.toDouble()))
+                .build()
         }
     }
 
