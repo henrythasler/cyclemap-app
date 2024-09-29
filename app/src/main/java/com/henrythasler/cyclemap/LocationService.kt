@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 
 // https://developer.android.com/guide/components/bound-services.html
 class LocationService : Service() {
@@ -24,16 +25,16 @@ class LocationService : Service() {
     private val binder = LocalBinder()
 
     /** methods and properties for clients  */
-//    private val _currentLocation = MutableStateFlow<Location?>(null)
-//    val currentLocation: StateFlow<Location?> = _currentLocation
-    var locations: MutableList<Location> = mutableListOf()
+    private val _locations = MutableStateFlow<List<Location>>(emptyList())
+    val locations: StateFlow<List<Location>> = _locations
 
     private var fusedLocationClient: FusedLocationProviderClient? = null
 
     private var locationCallback: LocationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
-            locationResult.lastLocation?.let { locations.add(it) }
-//            _currentLocation.value = locationResult.lastLocation
+            locationResult.lastLocation?.let {
+                _locations.update { loc -> loc + it }
+            }
         }
     }
 

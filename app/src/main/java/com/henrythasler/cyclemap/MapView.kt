@@ -140,7 +140,8 @@ fun CycleMapView() {
     }
 
 //    var trackLocations by remember { mutableStateOf(listOf<Location>()) }
-    var trackLength by remember { mutableIntStateOf(0) }
+    var isVisible by remember { mutableStateOf(false) }
+    var trackLocations by remember { mutableStateOf<List<Location>>(emptyList()) }
     var showRoute by remember { mutableStateOf(false) }
     var trackLocation by remember { mutableStateOf(false) }
     var followLocation by remember { mutableStateOf(false) }
@@ -207,7 +208,7 @@ fun CycleMapView() {
             Log.i(TAG, "saving track to: ${it.path}")
             coroutineScope.launch {
                 val trackSegment: MutableList<TrackPoint> = mutableListOf()
-                locationService?.locations?.forEach { point ->
+                trackLocations.forEach { point ->
                     trackSegment.add(TrackPoint().apply {
                         latitude = point.latitude
                         longitude = point.longitude
@@ -313,6 +314,12 @@ fun CycleMapView() {
     // Set up auto-save on suspend
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
+            isVisible = when (event) {
+                Lifecycle.Event.ON_START -> true // Composable is visible
+                Lifecycle.Event.ON_STOP -> false // Composable is not visible
+                else -> isVisible
+            }
+
             if (event == Lifecycle.Event.ON_STOP) {
                 coroutineScope.launch {
                     context.dataStore.edit { preferences ->
@@ -342,44 +349,37 @@ fun CycleMapView() {
         }
     }
 
+    Log.i(TAG, "Composing (${trackLocations.size})")
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        if (LocalInspectionMode.current) {
-            Image(
+        val styleUrl = resolveStyleId(styleDefinitions, currentStyleId)
+        styleUrl?.let { style ->
+            MapboxMap(
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds,
-                painter = painterResource(id = R.drawable.map_preview),
-                contentDescription = ""
-            )
-        } else {
-            val styleUrl = resolveStyleId(styleDefinitions, currentStyleId)
-            styleUrl?.let { style ->
-                MapboxMap(
-                    modifier = Modifier.fillMaxSize(),
-                    mapViewportState = mapViewportState,
-                    mapState = mapState,
-                    style = {
-                        MapStyle(style = style)
-                    },
-                    scaleBar = {
-                        ScaleBar(
-                            Modifier.padding(windowInsets),
-                            alignment = Alignment.BottomEnd,
-                            height = 5.dp,
-                            borderWidth = 1.dp,
-                            isMetricUnit = true,
-                            textSize = 14.sp,
-                        )
-                    },
-                    onMapLongClickListener = {
-                        clickedPoint = it
-                        showLocationDetails = true
-                        coroutineScope.launch {
-                            clickedPoint?.let { point ->
-                                clickedScreenCoordinate = mapState.pixelForCoordinate(point)
-                            }
+                mapViewportState = mapViewportState,
+                mapState = mapState,
+                style = {
+                    MapStyle(style = style)
+                },
+                scaleBar = {
+                    ScaleBar(
+                        Modifier.padding(windowInsets),
+                        alignment = Alignment.BottomEnd,
+                        height = 5.dp,
+                        borderWidth = 1.dp,
+                        isMetricUnit = true,
+                        textSize = 14.sp,
+                    )
+                },
+                onMapLongClickListener = {
+                    clickedPoint = it
+                    showLocationDetails = true
+                    coroutineScope.launch {
+                        clickedPoint?.let { point ->
+                            clickedScreenCoordinate = mapState.pixelForCoordinate(point)
                         }
+                    }
 //                        coroutineScope.launch {
 //                            val selectedFeatures = mapState.queryRenderedFeatures(
 //                                geometry = RenderedQueryGeometry(mapState.pixelForCoordinate(clickedPoint)),
@@ -390,60 +390,60 @@ fun CycleMapView() {
 //                                highlightedBuilding = (feature.queriedFeature.feature.geometry() as? Polygon)?.coordinates()?.toList() ?: emptyList()
 //                            }
 //                        }
-                        false
-                    }
-                ) {
-                    MapEffect(key1 = trackLocation, Unit) { mapView ->
-                        mapView.location.updateSettings {
-                            locationPuck = createDefault2DPuck(withBearing = true)
-                            enabled = trackLocation
-                            showAccuracyRing = true
-                            puckBearingEnabled = true
-                            puckBearing = PuckBearing.HEADING
-                        }
-
-                        if (trackLocation) {
-                            mapViewportState.transitionToFollowPuckState(
-                                followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
-                                    .bearing(null).padding(null).pitch(null).zoom(null).build()
-                            )
-                            followLocation = true
-
-                            Log.d(TAG, "addOnMoveListener")
-                            mapView.gestures.addOnMoveListener(onMoveListener)
-
-                            // request location updates for current speed indicator
-                            locationProvider = mapboxLocationService.getDeviceLocationProvider(
-                                LocationProviderRequest.Builder()
-                                    .interval(IntervalSettings.Builder().interval(1000L).build())
-                                    .accuracy(AccuracyLevel.MEDIUM) // not higher, otherwise it will always acquire location
-                                    .displacement(0f)
-                                    .build()
-                            ).value
-                            locationProvider?.run {
-                                addLocationObserver(locationObserver)
-                                Log.i(TAG, "location provider: ${getName()}")
-                            }
-                        } else {
-                            mapViewportState.idle()
-                            Log.d(TAG, "removeOnMoveListener")
-                            mapView.gestures.removeOnMoveListener(onMoveListener)
-                            locationProvider?.run {
-                                removeLocationObserver(locationObserver)
-                            }
-                        }
+                    false
+                }
+            ) {
+                MapEffect(trackLocation, isVisible) { mapView ->
+                    mapView.location.updateSettings {
+                        locationPuck = createDefault2DPuck(withBearing = true)
+                        enabled = trackLocation
+                        showAccuracyRing = true
+                        puckBearingEnabled = true
+                        puckBearing = PuckBearing.HEADING
                     }
 
-                    if (highlightedBuilding.isNotEmpty()) {
-                        PolygonAnnotation(
-                            points = highlightedBuilding,
-                            fillOpacity = 0.5,
-                            onClick = {
-                                highlightedBuilding = emptyList();
-                                false
-                            }
+                    if (trackLocation && isVisible) {
+                        mapViewportState.transitionToFollowPuckState(
+                            followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
+                                .bearing(null).padding(null).pitch(null).zoom(null).build()
                         )
+                        followLocation = true
+
+                        Log.d(TAG, "addOnMoveListener")
+                        mapView.gestures.addOnMoveListener(onMoveListener)
+
+                        // request location updates for current speed indicator
+                        locationProvider = mapboxLocationService.getDeviceLocationProvider(
+                            LocationProviderRequest.Builder()
+                                .interval(IntervalSettings.Builder().interval(1000L).build())
+                                .accuracy(AccuracyLevel.MEDIUM) // not higher, otherwise it will always acquire location
+                                .displacement(0f)
+                                .build()
+                        ).value
+                        locationProvider?.run {
+                            addLocationObserver(locationObserver)
+                            Log.i(TAG, "location provider: ${getName()}")
+                        }
+                    } else {
+                        mapViewportState.idle()
+                        Log.d(TAG, "removeOnMoveListener")
+                        mapView.gestures.removeOnMoveListener(onMoveListener)
+                        locationProvider?.run {
+                            removeLocationObserver(locationObserver)
+                        }
                     }
+                }
+
+                if (highlightedBuilding.isNotEmpty()) {
+                    PolygonAnnotation(
+                        points = highlightedBuilding,
+                        fillOpacity = 0.5,
+                        onClick = {
+                            highlightedBuilding = emptyList();
+                            false
+                        }
+                    )
+                }
 //                    clickedPoint?.let {
 //                        PointAnnotation(
 //                            point = it,
@@ -453,42 +453,41 @@ fun CycleMapView() {
 //                        )
 //                    }
 
-                    if (showRoute) {
-                        LineLayer(
-                            sourceState = routeLayer,
-                            lineWidth = DoubleValue(11.0),
-                            lineOpacity = DoubleValue(0.75),
-                            lineCap = LineCapValue.ROUND,
-                            lineJoin = LineJoinValue.ROUND,
-                            lineColor = ColorValue(colorResource(R.color.routeLine)),
-                            lineBorderWidth = DoubleValue(1.0),
-                            lineBorderColor = ColorValue(colorResource(R.color.routeLineCasing)),
-                        )
-                    }
-
-                    // always show the recorded track for future reference even after recording was stopped
+                if (showRoute) {
                     LineLayer(
-                        sourceState = trackLayer,
+                        sourceState = routeLayer,
                         lineWidth = DoubleValue(11.0),
                         lineOpacity = DoubleValue(0.75),
                         lineCap = LineCapValue.ROUND,
                         lineJoin = LineJoinValue.ROUND,
-                        lineColor = ColorValue(colorResource(R.color.trackLine)),
+                        lineColor = ColorValue(colorResource(R.color.routeLine)),
                         lineBorderWidth = DoubleValue(1.0),
-                        lineBorderColor = ColorValue(colorResource(R.color.trackLineCasing)),
+                        lineBorderColor = ColorValue(colorResource(R.color.routeLineCasing)),
                     )
+                }
 
-                    if (distanceMeasurement) {
-                        LineLayer(
-                            sourceState = distanceMeasurementLayer,
-                            lineWidth = DoubleValue(7.0),
-                            lineCap = LineCapValue.ROUND,
-                            lineJoin = LineJoinValue.ROUND,
-                            lineColor = ColorValue(colorResource(R.color.distanceMeasurementLine)),
-                            lineBorderWidth = DoubleValue(1.0),
-                            lineBorderColor = ColorValue(colorResource(R.color.distanceMeasurementLineCasing)),
-                        )
-                    }
+                // always show the recorded track for future reference even after recording was stopped
+                LineLayer(
+                    sourceState = trackLayer,
+                    lineWidth = DoubleValue(11.0),
+                    lineOpacity = DoubleValue(0.75),
+                    lineCap = LineCapValue.ROUND,
+                    lineJoin = LineJoinValue.ROUND,
+                    lineColor = ColorValue(colorResource(R.color.trackLine)),
+                    lineBorderWidth = DoubleValue(1.0),
+                    lineBorderColor = ColorValue(colorResource(R.color.trackLineCasing)),
+                )
+
+                if (distanceMeasurement) {
+                    LineLayer(
+                        sourceState = distanceMeasurementLayer,
+                        lineWidth = DoubleValue(7.0),
+                        lineCap = LineCapValue.ROUND,
+                        lineJoin = LineJoinValue.ROUND,
+                        lineColor = ColorValue(colorResource(R.color.distanceMeasurementLine)),
+                        lineBorderWidth = DoubleValue(1.0),
+                        lineBorderColor = ColorValue(colorResource(R.color.distanceMeasurementLineCasing)),
+                    )
                 }
             }
         }
@@ -553,26 +552,14 @@ fun CycleMapView() {
             }
         }
 
-        LaunchedEffect(locationServiceBound) {
-            if (locationServiceBound) {
-                while (true) {
-                    locationService?.locations?.let {
-                        if(it.size != trackLength) {
-                            trackLength = it.size
-                            Log.i(TAG, it.size.toString())
-                            trackLayer.data =
-                                GeoJSONData(LineString.fromLngLats(locationToPoints(it.toList())))
-                        }
-                    }
-                    delay(1000)
+        LaunchedEffect(locationServiceBound, isVisible) {
+            if (locationServiceBound && isVisible) {
+                locationService?.locations?.collect { locations ->
+                    Log.d(TAG, locations.size.toString())
+                    trackLocations = locations
+                    trackLayer.data =
+                        GeoJSONData(LineString.fromLngLats(locationToPoints(trackLocations)))
                 }
-//                locationService?.currentLocation?.collect { location ->
-//                    location?.let {
-//                        trackLocations += location
-//                        trackLayer.data =
-//                            GeoJSONData(LineString.fromLngLats(locationToPoints(trackLocations)))
-//                    }
-//                }
             }
         }
 
@@ -667,7 +654,7 @@ fun CycleMapView() {
                 },
                 onDeleteTrack = {
                     showMainMenu = false
-                    locationService?.locations = mutableListOf()
+                    trackLocations = emptyList()
                     trackLayer.data = GeoJSONData("")
                 },
                 onAbout = {
@@ -818,14 +805,8 @@ fun CycleMapView() {
             SpeedDisplay(currentSpeed, windowInsets)
         }
 
-        if (recordLocation) {
-            locationService?.let {
-                TrackStatistics(
-                    it.locations.toList(),
-                    recordLocation,
-                    windowInsets
-                )
-            }
+        if (recordLocation || trackLocations.isNotEmpty()) {
+            TrackStatistics(trackLocations, recordLocation, windowInsets)
         }
 
         if (showRoute) {
