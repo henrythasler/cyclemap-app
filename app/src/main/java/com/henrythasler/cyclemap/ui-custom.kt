@@ -2,15 +2,12 @@ package com.henrythasler.cyclemap
 
 import android.location.Location
 import android.text.format.DateUtils
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -334,17 +331,18 @@ fun MapContextMenu(
 }
 
 @Composable
-fun DropdownMenuContent(
+fun LocationContextMenu(
     header: String,
-    clickedPoint: ScreenCoordinate?,
-    onBookmarkLocation: () -> Unit,
-    onShareLocation: () -> Unit,
-    onLocationDetails: () -> Unit,
+    point: Point?,
+    screenCoordinate: ScreenCoordinate?,
+    onBookmarkLocation: (Point?) -> Unit,
+    onShareLocation: (Point?, Int) -> Unit,
+    onLocationDetails: (Point?) -> Unit,
     onDismiss: () -> Unit) {
     val radius = 8.dp
     Popup(
         properties = PopupProperties(focusable = true),
-        offset = clickedPoint?.let { IntOffset(it.x.toInt(), it.y.toInt()) } ?: IntOffset(0, 0),
+        offset = screenCoordinate?.let { IntOffset(it.x.toInt(), it.y.toInt()) } ?: IntOffset(0, 0),
         onDismissRequest = onDismiss
     ) {
         Surface(
@@ -370,7 +368,7 @@ fun DropdownMenuContent(
                     text = {
                         Text(text = stringResource(R.string.menu_map_context_bookmark))
                     },
-                    onClick = onBookmarkLocation,
+                    onClick = { onBookmarkLocation(point) },
                     leadingIcon = {
                         Icon(
                             painterResource(id = R.drawable.baseline_bookmark_add_24),
@@ -382,7 +380,7 @@ fun DropdownMenuContent(
                     text = {
                         Text(text = stringResource(R.string.menu_map_context_share))
                     },
-                    onClick = onShareLocation,
+                    onClick = { onShareLocation(point, R.string.share_position_link_cyclemap) },
                     leadingIcon = {
                         Icon(
                             painterResource(id = R.drawable.baseline_share_24),
@@ -390,11 +388,23 @@ fun DropdownMenuContent(
                         )
                     }
                 )
+//                DropdownMenuItem(
+//                    text = {
+//                        Text(text = stringResource(R.string.menu_map_context_share_google))
+//                    },
+//                    onClick = { onShareLocation(point, R.string.share_position_link_google) },
+//                    leadingIcon = {
+//                        Icon(
+//                            painterResource(id = R.drawable.baseline_share_24),
+//                            stringResource(R.string.menu_map_context_share_google)
+//                        )
+//                    }
+//                )
                 DropdownMenuItem(
                     text = {
                         Text(text = stringResource(R.string.menu_map_context_details))
                     },
-                    onClick = onLocationDetails,
+                    onClick = { onLocationDetails(point) },
                     leadingIcon = {
                         Icon(
                             painterResource(id = R.drawable.baseline_data_object_24),

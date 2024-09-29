@@ -109,6 +109,9 @@ import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
 import kotlinx.coroutines.launch
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
 
 // Create a top-level property for DataStore
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -425,7 +428,7 @@ fun CycleMapView() {
                         points = highlightedBuilding,
                         fillOpacity = 0.5,
                         onClick = {
-                            highlightedBuilding = emptyList();
+                            highlightedBuilding = emptyList()
                             false
                         }
                     )
@@ -479,8 +482,9 @@ fun CycleMapView() {
         }
 
         if (showLocationDetails) {
-            DropdownMenuContent(
+            LocationContextMenu(
                 getFormattedLocation(clickedPoint),
+                clickedPoint,
                 clickedScreenCoordinate,
                 onDismiss = {
                     showLocationDetails = false
@@ -502,8 +506,31 @@ fun CycleMapView() {
                 onBookmarkLocation = {
                     showLocationDetails = false
                 },
-                onShareLocation = {
+                onShareLocation = { point, shareTemplateId ->
                     showLocationDetails = false
+                    point?.let {
+                        val link = String.format(
+                            context.getString(shareTemplateId),
+                            DecimalFormat("#.##", DecimalFormatSymbols(Locale.US)).format(
+                                mapViewportState.cameraState?.zoom
+                            ),
+                            DecimalFormat(
+                                "#.####",
+                                DecimalFormatSymbols(Locale.US)
+                            ).format(point.latitude()),
+                            DecimalFormat(
+                                "#.####",
+                                DecimalFormatSymbols(Locale.US)
+                            ).format(point.longitude()),
+                        )
+
+                        val intent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, link)
+                        }
+                        val chooser = Intent.createChooser(intent, "Share location via")
+                        context.startActivity(chooser)
+                    }
                 }
             )
         }
