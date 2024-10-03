@@ -285,9 +285,9 @@ fun LocationContextMenu(
     header: String,
     point: Point?,
     screenCoordinate: ScreenCoordinate?,
-    onBookmarkLocation: (Point?) -> Unit,
-    onShareLocation: (Point?, Int) -> Unit,
-    onLocationDetails: (Point?) -> Unit,
+    onBookmarkLocation: (Point) -> Unit,
+    onShareLocation: (Point, Int) -> Unit,
+    onLocationDetails: (Point) -> Unit,
     onDismiss: () -> Unit
 ) {
     val radius = 8.dp
@@ -339,7 +339,7 @@ fun LocationContextMenu(
                     text = {
                         Text(text = stringResource(R.string.menu_map_context_favourites))
                     },
-                    onClick = { onBookmarkLocation(point) },
+                    onClick = { point?.let { onBookmarkLocation(it) } },
                     leadingIcon = {
                         Icon(
                             painterResource(id = R.drawable.baseline_star_border_24),
@@ -351,7 +351,7 @@ fun LocationContextMenu(
                     text = {
                         Text(text = stringResource(R.string.menu_map_context_share))
                     },
-                    onClick = { onShareLocation(point, R.string.share_position_link_cyclemap) },
+                    onClick = { point?.let { onShareLocation(it, R.string.share_position_link_cyclemap) } },
                     leadingIcon = {
                         Icon(
                             painterResource(id = R.drawable.baseline_share_24),

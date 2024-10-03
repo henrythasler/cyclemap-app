@@ -163,9 +163,11 @@ fun CycleMapView() {
     var clickedPoint by remember { mutableStateOf<Point?>(null) }
     var clickedScreenCoordinate by remember { mutableStateOf<ScreenCoordinate?>(null) }
 
+    /** Favourites handling */
     val context = LocalContext.current
     val dataStore: DataStore<Preferences> = context.dataStore
-    var favourites by remember { mutableStateOf<Set<Favourite>>(emptySet()) }
+    var favourites by remember { mutableStateOf<Set<Favourite>?>(null) }
+    var showFavouritesSelection by remember { mutableStateOf(false) }
 
     var locationService by remember { mutableStateOf<LocationService?>(null) }
     var locationServiceBound by remember { mutableStateOf(false) }
@@ -326,6 +328,13 @@ fun CycleMapView() {
         }
     }
 
+    /** Load Favourites */
+    if (favourites == null) {
+        LaunchedEffect(Unit) {
+            loadFavourites(dataStore).collect { favourites = it }
+        }
+    }
+
     // Load initial values
     val lifecycleOwner = LocalLifecycleOwner.current
     if (currentStyleId == null) {
@@ -385,6 +394,7 @@ fun CycleMapView() {
                                 it
                         }
                     }
+                    saveFavourites(dataStore, favourites)
                 }
             }
         }
@@ -545,34 +555,42 @@ fun CycleMapView() {
                         }
                     }
                 },
-                onBookmarkLocation = {
+                onBookmarkLocation = { point ->
                     showLocationDetails = false
+                    mapViewportState.cameraState?.let {
+                        favourites = favourites?.plus(
+                            Favourite(
+                                "My Location ${favourites?.size?.plus(1)}",
+                                point.longitude(),
+                                point.latitude(),
+                                it.zoom
+                            )
+                        )
+                    }
                 },
                 onShareLocation = { point, shareTemplateId ->
                     showLocationDetails = false
-                    point?.let {
-                        val link = String.format(
-                            context.getString(shareTemplateId),
-                            DecimalFormat("#.##", DecimalFormatSymbols(Locale.US)).format(
-                                mapViewportState.cameraState?.zoom
-                            ),
-                            DecimalFormat(
-                                "#.####",
-                                DecimalFormatSymbols(Locale.US)
-                            ).format(point.latitude()),
-                            DecimalFormat(
-                                "#.####",
-                                DecimalFormatSymbols(Locale.US)
-                            ).format(point.longitude()),
-                        )
+                    val link = String.format(
+                        context.getString(shareTemplateId),
+                        DecimalFormat("#.##", DecimalFormatSymbols(Locale.US)).format(
+                            mapViewportState.cameraState?.zoom
+                        ),
+                        DecimalFormat(
+                            "#.####",
+                            DecimalFormatSymbols(Locale.US)
+                        ).format(point.latitude()),
+                        DecimalFormat(
+                            "#.####",
+                            DecimalFormatSymbols(Locale.US)
+                        ).format(point.longitude()),
+                    )
 
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, link)
-                        }
-                        val chooser = Intent.createChooser(intent, "Share location via")
-                        context.startActivity(chooser)
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, link)
                     }
+                    val chooser = Intent.createChooser(intent, "Share location via")
+                    context.startActivity(chooser)
                 }
             )
         }
@@ -667,7 +685,7 @@ fun CycleMapView() {
                 },
                 onFavourites = {
                     showMainMenu = false
-                    // FIXME: add some business logic
+                    showFavouritesSelection = true
                 },
                 onSelectMapStyle = {
                     showMainMenu = false
@@ -831,6 +849,27 @@ fun CycleMapView() {
                     Log.i(TAG, "selected $styleDefinition")
                     currentStyleId = styleDefinition.styleId
                     showStyleSelection = false
+                }
+            }
+        }
+
+        if (showFavouritesSelection) {
+            FavouritesSelectionSheet(
+                favourites = favourites,
+                onDismiss = {
+                    showFavouritesSelection = false
+                },
+                onRemove = { item ->
+                    favourites = favourites?.minus(item)
+                }
+            ) { favourite ->
+                showFavouritesSelection = false
+                followLocation = false
+                mapViewportState.setCameraOptions {
+                    center(Point.fromLngLat(favourite.longitude, favourite.latitude))
+                    zoom(favourite.zoom)
+                    pitch(0.0)
+                    bearing(0.0)
                 }
             }
         }
