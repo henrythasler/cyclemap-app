@@ -38,6 +38,10 @@ class LocationService : Service() {
         }
     }
 
+    fun setLocations(newLocations: List<Location>) {
+        _locations.update { newLocations }
+    }
+
     /**
      * Class used for the client Binder.  Because we know this service always
      * runs in the same process as its clients, we don't need to deal with IPC.
@@ -110,8 +114,7 @@ class LocationService : Service() {
         )
         if (permission == PackageManager.PERMISSION_GRANTED) {
             fusedLocationClient?.requestLocationUpdates(request, locationCallback, null)
-        }
-        else {
+        } else {
             Log.e(TAG, "Permission for ACCESS_FINE_LOCATION not granted.")
         }
     }

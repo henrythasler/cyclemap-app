@@ -11,7 +11,7 @@
     <color name="distanceMeasurementLineCasing">#F6F4E7</color>
     <color name="routeLine">#F44336</color>
     <color name="routeLineCasing">#F6F4E7</color>
-    <color name="trackLine">#89FF00</color>
+    <color name="trackLine">#46DD0A</color>
     <color name="trackLineCasing">#F6F4E7</color>
     <color name="distanceMeasurementBadgeBackground">#BFF6F4E7</color>
     <color name="annotationBackground">#E6F6F4E7</color>

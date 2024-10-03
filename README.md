@@ -21,7 +21,7 @@ An Android app for offline usage of vector-tiles
 - [.] Graceful handling of device orientation changes
 - [x] clear current track
 - [x] Save Measurement as GPX
-- [ ] Share map position (Link, Text)
+- [x] Share map position (Link, Text)
 - [ ] Favorite locations (add, delete, fly-to)
 - [ ] Geo Search; POI search 
 - [x] Persist map style over lifecycles

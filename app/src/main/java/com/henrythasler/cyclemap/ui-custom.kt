@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -136,12 +138,13 @@ fun TrackStatistics(locations: List<Location>, trackRecording: Boolean, padding:
                 ),
                 horizontalAlignment = Alignment.End
             ) {
-                if(expanded) {
-                    val avgSpeed = if(tripDuration.inWholeSeconds > 0) distance / tripDuration.inWholeSeconds * 3.6 else 0.0
+                if (expanded) {
+                    val avgSpeed =
+                        if (tripDuration.inWholeSeconds > 0) distance / tripDuration.inWholeSeconds * 3.6 else 0.0
                     Text("Dist: ${getFormattedDistance(distance)}")
                     Text("Time: ${DateUtils.formatElapsedTime(tripDuration.inWholeSeconds)}")
                     Text("Avg: ${DecimalFormat("0.0").format(avgSpeed)} km/h")
-                    if(locations.isNotEmpty()) {
+                    if (locations.isNotEmpty()) {
                         val formattedTime = remember(locations.first().time) {
                             val instant = Instant.ofEpochMilli(locations.first().time)
                             val formatter = DateTimeFormatter.ofPattern("HH:mm")
@@ -150,8 +153,7 @@ fun TrackStatistics(locations: List<Location>, trackRecording: Boolean, padding:
                         }
                         Text("Start: $formattedTime")
                     }
-                }
-                else {
+                } else {
                     Text(getFormattedDistance(distance))
                     Text(DateUtils.formatElapsedTime(tripDuration.inWholeSeconds))
                 }
@@ -174,19 +176,32 @@ fun DistanceBadge(distance: Double) {
 fun MainMenu(
     showMainMenu: Boolean,
     onDismissRequest: () -> Unit,
+    onFavourites: () -> Unit,
     onSelectMapStyle: () -> Unit,
     onLoadGpx: () -> Unit,
     onClearRoute: () -> Unit,
     onSaveGpx: () -> Unit,
     onDeleteTrack: () -> Unit,
     onAbout: () -> Unit,
-    onScreenshot: () -> Unit,
 ) {
     DropdownMenu(
         expanded = showMainMenu,
         offset = DpOffset(48.dp, 0.dp), // FIXME: avoid hard-coded values
         onDismissRequest = onDismissRequest,
     ) {
+        DropdownMenuItem(
+            text = {
+                Text(text = stringResource(R.string.menu_favourites))
+            },
+            onClick = onFavourites,
+            leadingIcon = {
+                Icon(
+                    painterResource(id = R.drawable.baseline_star_24),
+                    stringResource(R.string.menu_favourites)
+                )
+            }
+        )
+        HorizontalDivider()
         DropdownMenuItem(
             text = {
                 Text(text = stringResource(R.string.menu_map_style))
@@ -262,71 +277,6 @@ fun MainMenu(
                 )
             }
         )
-        DropdownMenuItem(
-            text = {
-                Text(text = stringResource(R.string.menu_screenshot))
-            },
-            onClick = onScreenshot,
-            leadingIcon = {
-                Icon(
-                    painterResource(id = R.drawable.baseline_my_location_24),
-                    stringResource(R.string.menu_screenshot)
-                )
-            }
-        )
-    }
-}
-
-@Composable
-fun MapContextMenu(
-    clickedPoint: ScreenCoordinate?,
-    showContextMenu: Boolean,
-    onDismissRequest: () -> Unit,
-    onBookmarkLocation: () -> Unit,
-    onShareLocation: () -> Unit,
-    onLocationDetails: () -> Unit,
-) {
-    DropdownMenu(
-        expanded = showContextMenu,
-        offset = clickedPoint?.let { DpOffset(it.x.dp, it.y.dp) } ?: DpOffset(48.dp, 0.dp),
-        onDismissRequest = onDismissRequest,
-    ) {
-        DropdownMenuItem(
-            text = {
-                Text(text = stringResource(R.string.menu_map_context_bookmark))
-            },
-            onClick = onBookmarkLocation,
-            leadingIcon = {
-                Icon(
-                    painterResource(id = R.drawable.baseline_bookmark_add_24),
-                    stringResource(R.string.menu_map_context_bookmark)
-                )
-            }
-        )
-        DropdownMenuItem(
-            text = {
-                Text(text = stringResource(R.string.menu_map_context_share))
-            },
-            onClick = onShareLocation,
-            leadingIcon = {
-                Icon(
-                    painterResource(id = R.drawable.baseline_share_24),
-                    stringResource(R.string.menu_map_context_share)
-                )
-            }
-        )
-        DropdownMenuItem(
-            text = {
-                Text(text = stringResource(R.string.menu_map_context_details))
-            },
-            onClick = onLocationDetails,
-            leadingIcon = {
-                Icon(
-                    painterResource(id = R.drawable.baseline_data_object_24),
-                    stringResource(R.string.menu_map_context_share)
-                )
-            }
-        )
     }
 }
 
@@ -338,19 +288,40 @@ fun LocationContextMenu(
     onBookmarkLocation: (Point?) -> Unit,
     onShareLocation: (Point?, Int) -> Unit,
     onLocationDetails: (Point?) -> Unit,
-    onDismiss: () -> Unit) {
+    onDismiss: () -> Unit
+) {
     val radius = 8.dp
+    val icon = painterResource(id = R.drawable.baseline_my_location_24)
+    Icon(
+        modifier = Modifier
+            .offset {
+                screenCoordinate?.let {
+                    IntOffset(
+                        (it.x - icon.intrinsicSize.width / 2).toInt(),
+                        (it.y - icon.intrinsicSize.height / 2).toInt()
+                    )
+                } ?: IntOffset(0, 0)
+            },
+        painter = icon,
+        contentDescription = stringResource(R.string.menu_map_context)
+    )
+
     Popup(
         properties = PopupProperties(focusable = true),
-        offset = screenCoordinate?.let { IntOffset(it.x.toInt(), it.y.toInt()) } ?: IntOffset(0, 0),
-        onDismissRequest = onDismiss
+        offset = screenCoordinate?.let {
+            IntOffset(
+                (it.x + icon.intrinsicSize.width / 2).toInt(),
+                (it.y + icon.intrinsicSize.height / 2).toInt()
+            )
+        } ?: IntOffset(0, 0),
+        onDismissRequest = onDismiss,
     ) {
         Surface(
             shape = RoundedCornerShape(radius),
             color = MaterialTheme.colorScheme.surface,
         ) {
             Column(
-                modifier = Modifier.width(150.dp),
+                modifier = Modifier.width(160.dp),
             ) {
                 Text(
                     text = header,
@@ -362,17 +333,17 @@ fun LocationContextMenu(
                         bottom = radius / 2
                     )
 
-                    )
+                )
                 HorizontalDivider()
                 DropdownMenuItem(
                     text = {
-                        Text(text = stringResource(R.string.menu_map_context_bookmark))
+                        Text(text = stringResource(R.string.menu_map_context_favourites))
                     },
                     onClick = { onBookmarkLocation(point) },
                     leadingIcon = {
                         Icon(
-                            painterResource(id = R.drawable.baseline_bookmark_add_24),
-                            stringResource(R.string.menu_map_context_bookmark)
+                            painterResource(id = R.drawable.baseline_star_border_24),
+                            stringResource(R.string.menu_map_context_favourites)
                         )
                     }
                 )
@@ -400,18 +371,18 @@ fun LocationContextMenu(
 //                        )
 //                    }
 //                )
-                DropdownMenuItem(
-                    text = {
-                        Text(text = stringResource(R.string.menu_map_context_details))
-                    },
-                    onClick = { onLocationDetails(point) },
-                    leadingIcon = {
-                        Icon(
-                            painterResource(id = R.drawable.baseline_data_object_24),
-                            stringResource(R.string.menu_map_context_share)
-                        )
-                    }
-                )
+//                DropdownMenuItem(
+//                    text = {
+//                        Text(text = stringResource(R.string.menu_map_context_details))
+//                    },
+//                    onClick = { onLocationDetails(point) },
+//                    leadingIcon = {
+//                        Icon(
+//                            painterResource(id = R.drawable.baseline_data_object_24),
+//                            stringResource(R.string.menu_map_context_share)
+//                        )
+//                    }
+//                )
             }
         }
     }

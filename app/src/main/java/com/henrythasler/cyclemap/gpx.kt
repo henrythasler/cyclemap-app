@@ -91,22 +91,6 @@ fun writeGpxFile(gpx: Gpx, filePath: String) {
     serializer.write(gpx, file)
 }
 
-@Composable
-fun ReadSelectedGpx(uri: Uri, onLoaded: (Gpx) -> Unit) {
-    val context = LocalContext.current
-    LaunchedEffect(uri) {
-        try {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                val serializer = Persister()
-                val gpx = serializer.read(Gpx::class.java, inputStream)
-                onLoaded(gpx)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error loading GPX file $uri: $e")
-        }
-    }
-}
-
 /**
  * write a GPX trackSegment in a coroutine
  */

@@ -66,6 +66,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.core.app.ActivityCompat
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -109,6 +111,7 @@ import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
 import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
 import kotlinx.coroutines.launch
+import org.simpleframework.xml.core.Persister
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
@@ -161,6 +164,9 @@ fun CycleMapView() {
     var clickedScreenCoordinate by remember { mutableStateOf<ScreenCoordinate?>(null) }
 
     val context = LocalContext.current
+    val dataStore: DataStore<Preferences> = context.dataStore
+    var favourites by remember { mutableStateOf<Set<Favourite>>(emptySet()) }
+
     var locationService by remember { mutableStateOf<LocationService?>(null) }
     var locationServiceBound by remember { mutableStateOf(false) }
     val connection = remember {
@@ -168,6 +174,8 @@ fun CycleMapView() {
             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
                 val binder = service as LocationService.LocalBinder
                 locationService = binder.getService()
+                /** continue current track */
+                locationService?.setLocations(trackLocations)
                 locationServiceBound = true
                 Log.i(TAG, "onServiceConnected")
             }
@@ -190,14 +198,48 @@ fun CycleMapView() {
     val styleDefinitions: List<StyleDefinition> = parseStyleDefinitions(context)
 
     // File handling
-    var selectedUri by remember { mutableStateOf<Uri?>(null) }
+//    var selectedUri by remember { mutableStateOf<Uri?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            selectedUri = it
             Log.i(TAG, "selected file: ${it.path}")
+            coroutineScope.launch {
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        val serializer = Persister()
+                        val gpx = serializer.read(Gpx::class.java, inputStream)
+                        // process GPX data after loading
+                        val route: MutableList<Point> = mutableListOf()
+
+                        gpx.track?.segments?.forEach { segment ->
+                            segment.trackPoints?.forEach { point ->
+                                route.add(Point.fromLngLat(point.longitude, point.latitude))
+                            }
+                        }
+
+                        if (route.size > 1) {
+                            waypointCount = route.size
+                            routeDistance = measureDistance(route)
+
+                            val routeGeometry = LineString.fromLngLats(route)
+                            routeLayer.data =
+                                GeoJSONData(routeGeometry)
+                            showRoute = true
+                            followLocation = false
+                            mapViewportState.transitionToOverviewState(
+                                overviewViewportStateOptions = OverviewViewportStateOptions.Builder()
+                                    .geometry(routeGeometry)
+                                    .padding(EdgeInsets(200.0, 200.0, 200.0, 200.0))
+                                    .build()
+                            )
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error loading GPX file $uri: $e")
+                }
+            }
         }
     }
 
@@ -459,7 +501,7 @@ fun CycleMapView() {
                 LineLayer(
                     sourceState = trackLayer,
                     lineWidth = DoubleValue(11.0),
-                    lineOpacity = DoubleValue(0.75),
+                    lineOpacity = DoubleValue(0.80),
                     lineCap = LineCapValue.ROUND,
                     lineJoin = LineJoinValue.ROUND,
                     lineColor = ColorValue(colorResource(R.color.trackLine)),
@@ -483,7 +525,7 @@ fun CycleMapView() {
 
         if (showLocationDetails) {
             LocationContextMenu(
-                getFormattedLocation(clickedPoint),
+                getFormattedLocation(clickedPoint, 3),
                 clickedPoint,
                 clickedScreenCoordinate,
                 onDismiss = {
@@ -534,22 +576,6 @@ fun CycleMapView() {
                 }
             )
         }
-//        MapContextMenu(
-//            null,
-//            showLocationDetails,
-//            onDismissRequest = {
-//                showLocationDetails = false
-//            },
-//            onLocationDetails = {
-//                showLocationDetails = false
-//            },
-//            onBookmarkLocation = {
-//                showLocationDetails = false
-//            },
-//            onShareLocation = {
-//                showLocationDetails = false
-//            }
-//        )
 
         // Listen for camera movements when tracking is enabled
         LaunchedEffect(distanceMeasurement) {
@@ -639,6 +665,10 @@ fun CycleMapView() {
                 onDismissRequest = {
                     showMainMenu = false
                 },
+                onFavourites = {
+                    showMainMenu = false
+                    // FIXME: add some business logic
+                },
                 onSelectMapStyle = {
                     showMainMenu = false
                     showStyleSelection = true
@@ -665,16 +695,16 @@ fun CycleMapView() {
                     showMainMenu = false
                     showAbout = true
                 },
-                onScreenshot = {
-                    showMainMenu = false
-                    followLocation = false
-                    mapViewportState.setCameraOptions {
-                        center(Point.fromLngLat(10.897498, 48.279076))
-                        zoom(14.87486)
-                        pitch(0.0)
-                        bearing(0.0)
-                    }
-                }
+//                onScreenshot = {
+//                    showMainMenu = false
+//                    followLocation = false
+//                    mapViewportState.setCameraOptions {
+//                        center(Point.fromLngLat(10.897498, 48.279076))
+//                        zoom(14.87486)
+//                        pitch(0.0)
+//                        bearing(0.0)
+//                    }
+//                }
             )
 
             SmallFloatingActionButton(
@@ -883,35 +913,5 @@ fun CycleMapView() {
                 }
             }
         )
-    }
-
-    selectedUri?.let { uri ->
-        ReadSelectedGpx(uri) { gpx ->
-            // process GPX data after loading
-            val route: MutableList<Point> = mutableListOf()
-
-            gpx.track?.segments?.forEach { segment ->
-                segment.trackPoints?.forEach { point ->
-                    route.add(Point.fromLngLat(point.longitude, point.latitude))
-                }
-            }
-
-            if (route.size > 1) {
-                waypointCount = route.size
-                routeDistance = measureDistance(route)
-
-                val routeGeometry = LineString.fromLngLats(route)
-                routeLayer.data =
-                    GeoJSONData(routeGeometry)
-                showRoute = true
-                followLocation = false
-                mapViewportState.transitionToOverviewState(
-                    overviewViewportStateOptions = OverviewViewportStateOptions.Builder()
-                        .geometry(routeGeometry)
-                        .padding(EdgeInsets(200.0, 200.0, 200.0, 200.0))
-                        .build()
-                )
-            }
-        }
     }
 }

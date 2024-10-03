@@ -13,4 +13,8 @@
 
 <!-- Location Service Configuration -->
     <item name="location_update_interval_ms" type="integer">1000</item>
+
+<!-- Template Strings -->
+    <string name="share_position_link_cyclemap">https://cyclemap.link/#%1$s/%2$s/%3$s</string>
+    <string name="share_position_link_google">https://www.google.com/maps?q=%2$s,%3$s&amp;z=%1$s</string>
 </resources>
