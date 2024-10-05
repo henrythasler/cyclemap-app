@@ -80,6 +80,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.android.gestures.MoveGestureDetector
+import com.mapbox.geojson.Geometry
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.geojson.Polygon
@@ -228,14 +229,19 @@ fun CycleMapView() {
                             val routeGeometry = LineString.fromLngLats(route)
                             routeLayer.data =
                                 GeoJSONData(routeGeometry)
+                            Log.d(TAG, "Successfully loaded route with ${route.size} points")
+
+                            // FIXME: zoom to route extent
+                            mapViewportState.setCameraOptions { center(route.first()) }
+//                            mapViewportState.transitionToOverviewState(
+//                                overviewViewportStateOptions = OverviewViewportStateOptions.Builder()
+//                                    .geometry(routeGeometry)
+//                                    .padding(EdgeInsets(200.0, 200.0, 200.0, 200.0))
+//                                    .build()
+//                            )
+
                             showRoute = true
                             followLocation = false
-                            mapViewportState.transitionToOverviewState(
-                                overviewViewportStateOptions = OverviewViewportStateOptions.Builder()
-                                    .geometry(routeGeometry)
-                                    .padding(EdgeInsets(200.0, 200.0, 200.0, 200.0))
-                                    .build()
-                            )
                         }
                     }
                 } catch (e: Exception) {
@@ -677,53 +683,44 @@ fun CycleMapView() {
                 },
             ) {
                 Icon(Icons.Filled.Menu, stringResource(R.string.button_menu_desc))
+                if(showMainMenu) {
+                    MainMenu(
+                        onDismissRequest = {
+                            showMainMenu = false
+                        },
+                        onFavourites = {
+                            showMainMenu = false
+                            showFavouritesSelection = true
+                        },
+                        onSelectMapStyle = {
+                            showMainMenu = false
+                            showStyleSelection = true
+                        },
+                        onLoadGpx = {
+                            showMainMenu = false
+                            launcher.launch("*/*")
+                        },
+                        onClearRoute = {
+                            showMainMenu = false
+                            showRoute = false
+                            routeLayer.data = GeoJSONData("")
+                        },
+                        onSaveGpx = {
+                            showMainMenu = false
+                            saveTrack.launch("track.gpx")
+                        },
+                        onDeleteTrack = {
+                            showMainMenu = false
+                            trackLocations = emptyList()
+                            trackLayer.data = GeoJSONData("")
+                        },
+                        onAbout = {
+                            showMainMenu = false
+                            showAbout = true
+                        },
+                    )
+                }
             }
-            MainMenu(
-                showMainMenu,
-                onDismissRequest = {
-                    showMainMenu = false
-                },
-                onFavourites = {
-                    showMainMenu = false
-                    showFavouritesSelection = true
-                },
-                onSelectMapStyle = {
-                    showMainMenu = false
-                    showStyleSelection = true
-                },
-                onLoadGpx = {
-                    showMainMenu = false
-                    launcher.launch("*/*")
-                },
-                onClearRoute = {
-                    showMainMenu = false
-                    showRoute = false
-                    routeLayer.data = GeoJSONData("")
-                },
-                onSaveGpx = {
-                    showMainMenu = false
-                    saveTrack.launch("track.gpx")
-                },
-                onDeleteTrack = {
-                    showMainMenu = false
-                    trackLocations = emptyList()
-                    trackLayer.data = GeoJSONData("")
-                },
-                onAbout = {
-                    showMainMenu = false
-                    showAbout = true
-                },
-//                onScreenshot = {
-//                    showMainMenu = false
-//                    followLocation = false
-//                    mapViewportState.setCameraOptions {
-//                        center(Point.fromLngLat(10.897498, 48.279076))
-//                        zoom(14.87486)
-//                        pitch(0.0)
-//                        bearing(0.0)
-//                    }
-//                }
-            )
 
             SmallFloatingActionButton(
                 onClick = {

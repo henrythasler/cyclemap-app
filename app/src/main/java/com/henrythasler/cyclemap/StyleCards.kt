@@ -42,6 +42,7 @@ fun StyleSelectionSheet(
         modifier = Modifier
             .padding(12.dp),
         onDismissRequest = onDismiss,
+        scrimColor = Color.Transparent,
     ) {
         val padding = 8.dp
         val context = LocalContext.current

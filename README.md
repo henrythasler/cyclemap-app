@@ -22,7 +22,7 @@ An Android app for offline usage of vector-tiles
 - [x] clear current track
 - [x] Save Measurement as GPX
 - [x] Share map position (Link, Text)
-- [ ] Favorite locations (add, delete, fly-to)
+- [.] Favorite locations (add, delete, fly-to)
 - [ ] Geo Search; POI search 
 - [x] Persist map style over lifecycles
 - [ ] Remove last measurement point on crosshair long-press
