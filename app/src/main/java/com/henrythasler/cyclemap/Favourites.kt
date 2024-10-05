@@ -1,17 +1,25 @@
 package com.henrythasler.cyclemap
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.util.Log
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -20,24 +28,22 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
 import com.henrythasler.cyclemap.DataStoreUtils.getStringSet
 import com.henrythasler.cyclemap.DataStoreUtils.setStringSet
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
-import com.mapbox.geojson.Point
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.transform
+import java.io.ByteArrayOutputStream
 
 data class Favourite(
-    @SerializedName("name")
     val name: String,
-    @SerializedName("longitude")
+    val description: String,
     val longitude: Double,
-    @SerializedName("latitude")
     val latitude: Double,
-    @SerializedName("zoom")
-    val zoom: Double
+    val zoom: Double,
+    var image: String? = null,
+    @Transient var bitmap: Bitmap? = null,
 )
 
 object DataStoreUtils {
@@ -64,6 +70,13 @@ fun stringToFavourite(data: String): Favourite {
 suspend fun saveFavourites(datastore: DataStore<Preferences>, favourites: Set<Favourite>?) {
     val serialized = mutableSetOf<String>()
     favourites?.forEach { item ->
+        if(item.image == null) {
+            item.bitmap?.let {
+                val byteArrayOutputStream = ByteArrayOutputStream()
+                it.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream)
+                item.image = Base64.encodeToString(byteArrayOutputStream.toByteArray(), Base64.DEFAULT)
+            }
+        }
         serialized.add(favouriteToString(item))
     }
     Log.d(TAG, "saveFavourites: $serialized")
@@ -74,11 +87,22 @@ fun loadFavourites(datastore: DataStore<Preferences>): Flow<Set<Favourite>> {
     return datastore.getStringSet("favourites").transform { serialized ->
         val favourites: MutableSet<Favourite> = emptySet<Favourite>().toMutableSet()
         Log.d(TAG, "loadFavourites: $serialized")
-        serialized.forEach {
-            favourites += stringToFavourite(it)
+        serialized.forEach { item ->
+            val newItem = stringToFavourite(item)
+            newItem.image?.let { image ->
+                val decodedBytes = Base64.decode(image, Base64.DEFAULT)
+                newItem.bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+            }
+            favourites += newItem
         }
         if (favourites.size == 0) {
-            favourites += Favourite("screenshot location", 10.897498, 48.279076, 14.87486)
+            favourites += Favourite(
+                "screenshot location",
+                getFormattedDateTime(),
+                10.897498,
+                48.279076,
+                14.87486
+            )
         }
         emit(favourites)
     }
@@ -100,24 +124,29 @@ fun FavouritesSelectionSheet(
     ) {
         val padding = 8.dp
         favourites?.forEach { item ->
-            Row {
-                Column(
+            Row (
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
                     modifier = Modifier
-//                        .fillMaxWidth()
                         .clickable {
                             onSelect(item)
                         },
                 ) {
-                    Text(
-                        modifier = Modifier
-                            .padding(padding),
-                        text = item.name
-                    )
-                    Text(
-                        modifier = Modifier
-                            .padding(padding),
-                        text = getFormattedLocation(Point.fromLngLat(item.longitude, item.latitude))
-                    )
+                    item.bitmap?.let {
+                        Image(
+                            modifier = Modifier
+                                .width(100.dp)
+                                .height(100.dp)
+                                .padding(padding),
+                            bitmap = it.asImageBitmap(),
+                            contentDescription = ""
+                        )
+                    }
+                    Column {
+                        Text(text = item.name)
+                        Text(text = item.description)
+                    }
                 }
                 Icon(
                     modifier = Modifier

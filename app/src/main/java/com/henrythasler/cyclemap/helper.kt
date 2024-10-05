@@ -1,19 +1,23 @@
 package com.henrythasler.cyclemap
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.location.Location
+import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
+import com.mapbox.maps.ScreenCoordinate
 import com.mapbox.maps.Style
 import com.mapbox.turf.TurfConstants
 import com.mapbox.turf.TurfMeasurement
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
-import java.util.Locale
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 fun getFormattedDistance(distance: Double): String {
     return if (distance > 5000) {
@@ -30,6 +34,11 @@ fun getFormattedLocation(point: Point?, decimals: Int = 2): String {
         return "${lat}°, ${lon}°"
     }
     return ""
+}
+
+fun getFormattedDateTime(): String {
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+    return LocalDateTime.now().format(formatter)
 }
 
 fun measureDistance(lineString: List<Point>): Double {
@@ -83,5 +92,18 @@ val mapboxStyleIdMapping = mapOf(
     "SATELLITE" to Style.SATELLITE,
     "MAPBOX_STREETS" to Style.MAPBOX_STREETS,
     "TRAFFIC_DAY" to Style.TRAFFIC_DAY,
-
     )
+
+// Function to crop the center of a Bitmap
+fun cropBitmapToCenter(bitmap: Bitmap, width: Int, height: Int, center: ScreenCoordinate? = null): Bitmap {
+    val x = (center?.x?.toInt() ?: bitmap.width) - width / 2
+    val y = (center?.y?.toInt() ?: bitmap.height) - height / 2
+
+    Log.d(TAG, center.toString())
+
+    // Ensure the crop area doesn't exceed the original bitmap's bounds
+    val cropWidth = width.coerceAtMost(bitmap.width)
+    val cropHeight = height.coerceAtMost(bitmap.height)
+
+    return Bitmap.createBitmap(bitmap, x.coerceAtLeast(0), y.coerceAtLeast(0), cropWidth, cropHeight)
+}

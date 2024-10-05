@@ -80,11 +80,10 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.android.gestures.MoveGestureDetector
-import com.mapbox.geojson.Geometry
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.geojson.Polygon
-import com.mapbox.maps.EdgeInsets
+import com.mapbox.maps.MapView
 import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.RenderedQueryGeometry
 import com.mapbox.maps.RenderedQueryOptions
@@ -110,7 +109,6 @@ import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
-import com.mapbox.maps.plugin.viewport.data.OverviewViewportStateOptions
 import kotlinx.coroutines.launch
 import org.simpleframework.xml.core.Persister
 import java.text.DecimalFormat
@@ -130,6 +128,7 @@ fun CycleMapView() {
             .setPitchEnabled(false)
             .build()
     }
+    var mapView by remember { mutableStateOf<MapView?>(null)}
     val mapViewportState = rememberMapViewportState()
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val windowInsets = WindowInsets.systemBars.asPaddingValues()
@@ -201,7 +200,6 @@ fun CycleMapView() {
     val styleDefinitions: List<StyleDefinition> = parseStyleDefinitions(context)
 
     // File handling
-//    var selectedUri by remember { mutableStateOf<Uri?>(null) }
     val coroutineScope = rememberCoroutineScope()
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -456,28 +454,31 @@ fun CycleMapView() {
                     false
                 }
             ) {
-                MapEffect(trackLocation, isVisible) { mapView ->
-                    mapView.location.updateSettings {
-                        locationPuck = createDefault2DPuck(withBearing = true)
-                        enabled = trackLocation
-                        showAccuracyRing = true
-                        puckBearingEnabled = true
-                        puckBearing = PuckBearing.HEADING
-                    }
+                MapEffect(trackLocation, isVisible) {
+                    mapView = it
+                    mapView?.let { view ->
+                        view.location.updateSettings {
+                            locationPuck = createDefault2DPuck(withBearing = true)
+                            enabled = trackLocation
+                            showAccuracyRing = true
+                            puckBearingEnabled = true
+                            puckBearing = PuckBearing.HEADING
+                        }
 
-                    if (trackLocation && isVisible) {
-                        mapViewportState.transitionToFollowPuckState(
-                            followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
-                                .bearing(null).padding(null).pitch(null).zoom(null).build()
-                        )
-                        followLocation = true
+                        if (trackLocation && isVisible) {
+                            mapViewportState.transitionToFollowPuckState(
+                                followPuckViewportStateOptions = FollowPuckViewportStateOptions.Builder()
+                                    .bearing(null).padding(null).pitch(null).zoom(null).build()
+                            )
+                            followLocation = true
 
-                        Log.d(TAG, "addOnMoveListener")
-                        mapView.gestures.addOnMoveListener(onMoveListener)
-                    } else {
-                        mapViewportState.idle()
-                        Log.d(TAG, "removeOnMoveListener")
-                        mapView.gestures.removeOnMoveListener(onMoveListener)
+                            Log.d(TAG, "addOnMoveListener")
+                            view.gestures.addOnMoveListener(onMoveListener)
+                        } else {
+                            mapViewportState.idle()
+                            Log.d(TAG, "removeOnMoveListener")
+                            view.gestures.removeOnMoveListener(onMoveListener)
+                        }
                     }
                 }
 
@@ -563,13 +564,16 @@ fun CycleMapView() {
                 },
                 onBookmarkLocation = { point ->
                     showLocationDetails = false
-                    mapViewportState.cameraState?.let {
+                    mapViewportState.cameraState?.let { viewport ->
+                        val screenshot = mapView?.snapshot()
                         favourites = favourites?.plus(
                             Favourite(
                                 "My Location ${favourites?.size?.plus(1)}",
+                                getFormattedDateTime(),
                                 point.longitude(),
                                 point.latitude(),
-                                it.zoom
+                                viewport.zoom,
+                                bitmap = screenshot?.let { bmp -> cropBitmapToCenter(bmp, 500, 500, clickedScreenCoordinate) },
                             )
                         )
                     }
@@ -683,7 +687,7 @@ fun CycleMapView() {
                 },
             ) {
                 Icon(Icons.Filled.Menu, stringResource(R.string.button_menu_desc))
-                if(showMainMenu) {
+                if (showMainMenu) {
                     MainMenu(
                         onDismissRequest = {
                             showMainMenu = false
