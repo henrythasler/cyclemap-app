@@ -573,7 +573,7 @@ fun CycleMapView() {
                                 point.longitude(),
                                 point.latitude(),
                                 viewport.zoom,
-                                bitmap = screenshot?.let { bmp -> cropBitmapToCenter(bmp, 500, 500, clickedScreenCoordinate) },
+                                image = screenshot?.cropAroundCenter(clickedScreenCoordinate?.x!!.toInt(), clickedScreenCoordinate?.y!!.toInt(), 500, 500),
                             )
                         )
                     }

@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.location.Location
 import android.util.Log
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
@@ -106,4 +108,34 @@ fun cropBitmapToCenter(bitmap: Bitmap, width: Int, height: Int, center: ScreenCo
     val cropHeight = height.coerceAtMost(bitmap.height)
 
     return Bitmap.createBitmap(bitmap, x.coerceAtLeast(0), y.coerceAtLeast(0), cropWidth, cropHeight)
+}
+
+fun Bitmap.cropAroundCenter(
+    centerX: Int,
+    centerY: Int,
+    targetWidth: Int,
+    targetHeight: Int
+): ImageBitmap {
+    // Ensure target dimensions are positive
+    require(targetWidth > 0 && targetHeight > 0) {
+        "Target dimensions must be positive"
+    }
+
+    // Calculate the crop boundaries
+    val halfWidth = targetWidth / 2
+    val halfHeight = targetHeight / 2
+
+    val left = (centerX - halfWidth).coerceAtLeast(0)
+    val top = (centerY - halfHeight).coerceAtLeast(0)
+    val right = (centerX + halfWidth).coerceAtMost(width)
+    val bottom = ( centerY + halfHeight).coerceAtMost(height)
+
+    // Create the cropped bitmap
+    return Bitmap.createBitmap(
+        this,
+        left,
+        top,
+        right - left,
+        bottom - top
+    ).asImageBitmap()
 }

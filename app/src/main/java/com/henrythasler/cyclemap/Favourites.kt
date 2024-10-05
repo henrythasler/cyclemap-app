@@ -19,6 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -42,8 +44,8 @@ data class Favourite(
     val longitude: Double,
     val latitude: Double,
     val zoom: Double,
-    var image: String? = null,
-    @Transient var bitmap: Bitmap? = null,
+    var imageBase64: String? = null,
+    @Transient var image: ImageBitmap? = null,
 )
 
 object DataStoreUtils {
@@ -70,11 +72,11 @@ fun stringToFavourite(data: String): Favourite {
 suspend fun saveFavourites(datastore: DataStore<Preferences>, favourites: Set<Favourite>?) {
     val serialized = mutableSetOf<String>()
     favourites?.forEach { item ->
-        if(item.image == null) {
-            item.bitmap?.let {
+        if(item.imageBase64 == null) {
+            item.image?.let { image ->
                 val byteArrayOutputStream = ByteArrayOutputStream()
-                it.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream)
-                item.image = Base64.encodeToString(byteArrayOutputStream.toByteArray(), Base64.DEFAULT)
+                image.asAndroidBitmap().compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream)
+                item.imageBase64 = Base64.encodeToString(byteArrayOutputStream.toByteArray(), Base64.DEFAULT)
             }
         }
         serialized.add(favouriteToString(item))
@@ -89,9 +91,9 @@ fun loadFavourites(datastore: DataStore<Preferences>): Flow<Set<Favourite>> {
         Log.d(TAG, "loadFavourites: $serialized")
         serialized.forEach { item ->
             val newItem = stringToFavourite(item)
-            newItem.image?.let { image ->
-                val decodedBytes = Base64.decode(image, Base64.DEFAULT)
-                newItem.bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+            newItem.imageBase64?.let { imageBase64 ->
+                val decodedBytes = Base64.decode(imageBase64, Base64.DEFAULT)
+                newItem.image = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size).asImageBitmap()
             }
             favourites += newItem
         }
@@ -133,13 +135,13 @@ fun FavouritesSelectionSheet(
                             onSelect(item)
                         },
                 ) {
-                    item.bitmap?.let {
+                    item.image?.let { image ->
                         Image(
                             modifier = Modifier
                                 .width(100.dp)
                                 .height(100.dp)
                                 .padding(padding),
-                            bitmap = it.asImageBitmap(),
+                            bitmap = image,
                             contentDescription = ""
                         )
                     }
