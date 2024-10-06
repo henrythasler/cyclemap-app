@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -53,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
@@ -92,6 +94,7 @@ import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
 import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
 import com.mapbox.maps.extension.compose.annotation.generated.PolygonAnnotation
+import com.mapbox.maps.extension.compose.annotation.generated.PolylineAnnotation
 import com.mapbox.maps.extension.compose.rememberMapState
 import com.mapbox.maps.extension.compose.style.ColorValue
 import com.mapbox.maps.extension.compose.style.DoubleValue
@@ -195,6 +198,7 @@ fun CycleMapView() {
     var waypointCount by remember { mutableIntStateOf(0) }
 
     val distanceMeasurementLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
+    var routePoints by remember { mutableStateOf<List<Point>>(emptyList()) }
     val routeLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
     val trackLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
     val styleDefinitions: List<StyleDefinition> = parseStyleDefinitions(context)
@@ -221,6 +225,9 @@ fun CycleMapView() {
                         }
 
                         if (route.size > 1) {
+                            // FIXME: verify if this is needed for
+                            routePoints = route
+
                             waypointCount = route.size
                             routeDistance = measureDistance(route)
 
@@ -502,9 +509,25 @@ fun CycleMapView() {
 //                    }
 
                 if (showRoute) {
+//                    PolylineAnnotation(
+//                        points = routePoints,
+//                        lineWidth = 11.0,
+//                        lineOpacity = 0.75,
+//                        lineColorInt = colorResource(R.color.routeLine).toArgb(),
+//                        lineBorderWidth = 1.0,
+//                        lineBorderColorInt = colorResource(R.color.routeLineCasing).toArgb(),
+//                        onClick = {
+//                            Toast.makeText(
+//                                context,
+//                                "Clicked on Polygon Annotation: $it",
+//                                Toast.LENGTH_SHORT
+//                            ).show()
+//                            true
+//                        }
+//                    )
                     LineLayer(
                         sourceState = routeLayer,
-                        lineWidth = DoubleValue(11.0),
+                        lineWidth = DoubleValue(13.0),
                         lineOpacity = DoubleValue(0.75),
                         lineCap = LineCapValue.ROUND,
                         lineJoin = LineJoinValue.ROUND,
