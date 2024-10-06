@@ -17,4 +17,7 @@
 <!-- Template Strings -->
     <string name="share_position_link_cyclemap">https://cyclemap.link/#%1$s/%2$s/%3$s</string>
     <string name="share_position_link_google">https://www.google.com/maps?q=%2$s,%3$s&amp;z=%1$s</string>
+
+<!--    Favourites Settings    -->
+    <item name="favourites_thumbnail_size" type="integer">400</item>
 </resources>

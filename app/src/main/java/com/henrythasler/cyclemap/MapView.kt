@@ -128,7 +128,7 @@ fun CycleMapView() {
             .setPitchEnabled(false)
             .build()
     }
-    var mapView by remember { mutableStateOf<MapView?>(null)}
+    var mapView by remember { mutableStateOf<MapView?>(null) }
     val mapViewportState = rememberMapViewportState()
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val windowInsets = WindowInsets.systemBars.asPaddingValues()
@@ -335,7 +335,7 @@ fun CycleMapView() {
     /** Load Favourites */
     if (favourites == null) {
         LaunchedEffect(Unit) {
-            loadFavourites(dataStore).collect { favourites = it }
+            loadFavourites(context, dataStore).collect { favourites = it }
         }
     }
 
@@ -573,7 +573,12 @@ fun CycleMapView() {
                                 point.longitude(),
                                 point.latitude(),
                                 viewport.zoom,
-                                image = screenshot?.cropAroundCenter(clickedScreenCoordinate?.x!!.toInt(), clickedScreenCoordinate?.y!!.toInt(), 500, 500),
+                                image = screenshot?.cropAroundCenter(
+                                    clickedScreenCoordinate?.x!!.toInt(),
+                                    clickedScreenCoordinate?.y!!.toInt(),
+                                    context.resources.getInteger(R.integer.favourites_thumbnail_size),
+                                    context.resources.getInteger(R.integer.favourites_thumbnail_size),
+                                ),
                             )
                         )
                     }
