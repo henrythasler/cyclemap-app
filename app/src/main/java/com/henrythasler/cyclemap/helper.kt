@@ -77,6 +77,7 @@ fun resolveStyleId(styleDefinitions: List<StyleDefinition>, id: String?): String
 
 data class StyleDefinition(
     val styleName: String,
+    val styleDescription: String?,
     val styleId: String,
     val styleSource: String,
     val drawable: String,
@@ -94,10 +95,15 @@ val mapboxStyleIdMapping = mapOf(
     "SATELLITE" to Style.SATELLITE,
     "MAPBOX_STREETS" to Style.MAPBOX_STREETS,
     "TRAFFIC_DAY" to Style.TRAFFIC_DAY,
-    )
+)
 
 // Function to crop the center of a Bitmap
-fun cropBitmapToCenter(bitmap: Bitmap, width: Int, height: Int, center: ScreenCoordinate? = null): Bitmap {
+fun cropBitmapToCenter(
+    bitmap: Bitmap,
+    width: Int,
+    height: Int,
+    center: ScreenCoordinate? = null
+): Bitmap {
     val x = (center?.x?.toInt() ?: bitmap.width) - width / 2
     val y = (center?.y?.toInt() ?: bitmap.height) - height / 2
 
@@ -107,7 +113,13 @@ fun cropBitmapToCenter(bitmap: Bitmap, width: Int, height: Int, center: ScreenCo
     val cropWidth = width.coerceAtMost(bitmap.width)
     val cropHeight = height.coerceAtMost(bitmap.height)
 
-    return Bitmap.createBitmap(bitmap, x.coerceAtLeast(0), y.coerceAtLeast(0), cropWidth, cropHeight)
+    return Bitmap.createBitmap(
+        bitmap,
+        x.coerceAtLeast(0),
+        y.coerceAtLeast(0),
+        cropWidth,
+        cropHeight
+    )
 }
 
 fun Bitmap.cropAroundCenter(
@@ -125,10 +137,11 @@ fun Bitmap.cropAroundCenter(
     val halfWidth = targetWidth / 2
     val halfHeight = targetHeight / 2
 
-    val left = (centerX - halfWidth).coerceAtLeast(0)
-    val top = (centerY - halfHeight).coerceAtLeast(0)
-    val right = (centerX + halfWidth).coerceAtMost(width)
-    val bottom = ( centerY + halfHeight).coerceAtMost(height)
+    val left = (centerX.coerceIn(halfWidth, this.width - halfWidth) - halfWidth).coerceAtLeast(0)
+    val top = (centerY.coerceIn(halfHeight, this.height - halfHeight) - halfHeight).coerceAtLeast(0)
+    val right =
+        (centerX.coerceIn(halfWidth, this.width - halfWidth) + halfWidth).coerceAtMost(width)
+    val bottom = (centerY.coerceIn(halfHeight, this.height - halfHeight) + halfHeight).coerceAtMost(height)
 
     // Create the cropped bitmap
     return Bitmap.createBitmap(

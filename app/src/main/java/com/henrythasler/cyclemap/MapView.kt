@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -82,6 +83,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.android.gestures.MoveGestureDetector
+import com.mapbox.common.toValue
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.geojson.Polygon
@@ -492,12 +494,13 @@ fun CycleMapView() {
                 if (highlightedBuilding.isNotEmpty()) {
                     PolygonAnnotation(
                         points = highlightedBuilding,
-                        fillOpacity = 0.5,
                         onClick = {
                             highlightedBuilding = emptyList()
                             false
                         }
-                    )
+                    ) {
+                        fillOpacity = 0.5
+                    }
                 }
 //                    clickedPoint?.let {
 //                        PointAnnotation(
@@ -525,40 +528,61 @@ fun CycleMapView() {
 //                            true
 //                        }
 //                    )
-                    LineLayer(
-                        sourceState = routeLayer,
-                        lineWidth = DoubleValue(13.0),
-                        lineOpacity = DoubleValue(0.75),
-                        lineCap = LineCapValue.ROUND,
-                        lineJoin = LineJoinValue.ROUND,
-                        lineColor = ColorValue(colorResource(R.color.routeLine)),
-                        lineBorderWidth = DoubleValue(1.0),
-                        lineBorderColor = ColorValue(colorResource(R.color.routeLineCasing)),
-                    )
+                    LineLayer(sourceState = routeLayer) {
+                        lineWidth = DoubleValue(13.0)
+                        lineOpacity = DoubleValue(0.75)
+                        lineCap = LineCapValue.ROUND
+                        lineJoin = LineJoinValue.ROUND
+                        lineColor =
+                            ColorValue(Color(ContextCompat.getColor(context, R.color.routeLine)))
+                        lineBorderWidth = DoubleValue(1.0)
+                        lineBorderColor = ColorValue(
+                            Color(
+                                ContextCompat.getColor(
+                                    context,
+                                    R.color.routeLineCasing
+                                )
+                            )
+                        )
+                    }
                 }
 
                 // always show the recorded track for future reference even after recording was stopped
-                LineLayer(
-                    sourceState = trackLayer,
-                    lineWidth = DoubleValue(11.0),
-                    lineOpacity = DoubleValue(0.80),
-                    lineCap = LineCapValue.ROUND,
-                    lineJoin = LineJoinValue.ROUND,
-                    lineColor = ColorValue(colorResource(R.color.trackLine)),
-                    lineBorderWidth = DoubleValue(1.0),
-                    lineBorderColor = ColorValue(colorResource(R.color.trackLineCasing)),
-                )
+                LineLayer(sourceState = trackLayer) {
+                    lineWidth = DoubleValue(11.0)
+                    lineOpacity = DoubleValue(0.80)
+                    lineCap = LineCapValue.ROUND
+                    lineJoin = LineJoinValue.ROUND
+                    lineColor =
+                        ColorValue(Color(ContextCompat.getColor(context, R.color.trackLine)))
+                    lineBorderWidth = DoubleValue(1.0)
+                    lineBorderColor =
+                        ColorValue(Color(ContextCompat.getColor(context, R.color.trackLineCasing)))
+                }
 
                 if (distanceMeasurement) {
-                    LineLayer(
-                        sourceState = distanceMeasurementLayer,
-                        lineWidth = DoubleValue(7.0),
-                        lineCap = LineCapValue.ROUND,
-                        lineJoin = LineJoinValue.ROUND,
-                        lineColor = ColorValue(colorResource(R.color.distanceMeasurementLine)),
-                        lineBorderWidth = DoubleValue(1.0),
-                        lineBorderColor = ColorValue(colorResource(R.color.distanceMeasurementLineCasing)),
-                    )
+                    LineLayer(sourceState = distanceMeasurementLayer) {
+                        lineWidth = DoubleValue(7.0)
+                        lineCap = LineCapValue.ROUND
+                        lineJoin = LineJoinValue.ROUND
+                        lineColor = ColorValue(
+                            Color(
+                                ContextCompat.getColor(
+                                    context,
+                                    R.color.distanceMeasurementLine
+                                )
+                            )
+                        )
+                        lineBorderWidth = DoubleValue(1.0)
+                        lineBorderColor = ColorValue(
+                            Color(
+                                ContextCompat.getColor(
+                                    context,
+                                    R.color.distanceMeasurementLineCasing
+                                )
+                            )
+                        )
+                    }
                 }
             }
         }

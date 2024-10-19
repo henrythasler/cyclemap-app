@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
@@ -24,15 +25,16 @@ import com.mapbox.geojson.Point
 import com.mapbox.maps.ScreenCoordinate
 
 @Composable
+@Preview
 fun MainMenu(
-    onDismissRequest: () -> Unit,
-    onFavourites: () -> Unit,
-    onSelectMapStyle: () -> Unit,
-    onLoadGpx: () -> Unit,
-    onClearRoute: () -> Unit,
-    onSaveGpx: () -> Unit,
-    onDeleteTrack: () -> Unit,
-    onAbout: () -> Unit,
+    onDismissRequest: () -> Unit = {},
+    onFavourites: () -> Unit = {},
+    onSelectMapStyle: () -> Unit = {},
+    onLoadGpx: () -> Unit = {},
+    onClearRoute: () -> Unit = {},
+    onSaveGpx: () -> Unit = {},
+    onDeleteTrack: () -> Unit = {},
+    onAbout: () -> Unit = {},
 ) {
     val radius = 6.dp
     Popup(
@@ -45,7 +47,7 @@ fun MainMenu(
         ) {
             Column(
                 // FIXME: find a better way to limit the width
-                modifier = Modifier.width(200.dp),
+                modifier = Modifier.width(220.dp),
             ) {
                 DropdownMenuItem(
                     text = {
@@ -141,14 +143,15 @@ fun MainMenu(
 }
 
 @Composable
+@Preview(widthDp = 160)
 fun LocationContextMenu(
-    header: String,
-    point: Point?,
-    screenCoordinate: ScreenCoordinate?,
-    onBookmarkLocation: (Point) -> Unit,
-    onShareLocation: (Point, Int) -> Unit,
-    onLocationDetails: (Point) -> Unit,
-    onDismiss: () -> Unit
+    header: String = "48.000°, 11.000°",
+    point: Point? = null,
+    screenCoordinate: ScreenCoordinate? = null,
+    onBookmarkLocation: (Point) -> Unit = {},
+    onShareLocation: (Point, Int) -> Unit = {_, _ -> },
+    onLocationDetails: (Point) -> Unit = {},
+    onDismiss: () -> Unit = {}
 ) {
     val radius = 8.dp
     val icon = painterResource(id = R.drawable.baseline_my_location_24)

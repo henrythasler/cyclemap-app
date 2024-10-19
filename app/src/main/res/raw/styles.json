@@ -1,18 +1,21 @@
 [
   {
     "styleName": "CycleMap",
+    "styleDescription": "A custom style optimized for hiking and biking.",
     "styleId": "cyclemap",
     "styleSource": "https://www.cyclemap.link/cyclemap-style.json",
     "drawable": "map_preview_cyclemap"
   },
   {
     "styleName": "Shadow",
+    "styleDescription": "Simplified grayscale.",
     "styleId": "shadow",
     "styleSource": "https://www.cyclemap.link/shadow-style.json",
     "drawable": "map_preview_shadow"
   },
   {
     "styleName": "X-Ray",
+    "styleDescription": "Debug view",
     "styleId": "xray",
     "styleSource": "https://www.cyclemap.link/xray-style.json",
     "drawable": "map_preview_xray"
