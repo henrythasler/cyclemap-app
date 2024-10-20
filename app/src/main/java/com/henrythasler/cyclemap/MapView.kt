@@ -950,15 +950,17 @@ fun CycleMapView() {
         }
 
         if (showGeoSearch) {
-            clickedPoint?.let {
-                GeoSearchSheet(
-                    searchEngine,
-                    it,
-                    onDismiss = {
-                        showGeoSearch = false
-                    },
-                )
-            }
+            GeoSearchSheet(
+                mapViewportState.cameraState?.center,
+                searchEngine,
+                onDismiss = {
+                    showGeoSearch = false
+                },
+                onSelect = { point ->
+                    showGeoSearch = false
+                    mapViewportState.setCameraOptions { center(point) }
+                }
+            )
         }
     }
 
