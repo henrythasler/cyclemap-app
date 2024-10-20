@@ -1,5 +1,6 @@
 [versions]
 agp = "8.5.2"
+mapboxSearchAndroid = "2.5.1"
 maps = "11.7.0"
 kotlin = "1.9.0"
 coreKtx = "1.13.1"
@@ -34,6 +35,7 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+mapbox-search-android = { module = "com.mapbox.search:mapbox-search-android", version.ref = "mapboxSearchAndroid" }
 maps-android = { module = "com.mapbox.maps:android", version.ref = "maps" }
 maps-compose = { module = "com.mapbox.extension:maps-compose", version.ref = "mapsCompose" }
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }

@@ -13,7 +13,6 @@ import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -54,7 +53,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
@@ -83,7 +81,6 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.android.gestures.MoveGestureDetector
-import com.mapbox.common.toValue
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.geojson.Polygon
@@ -96,7 +93,6 @@ import com.mapbox.maps.extension.compose.MapEffect
 import com.mapbox.maps.extension.compose.MapboxMap
 import com.mapbox.maps.extension.compose.animation.viewport.rememberMapViewportState
 import com.mapbox.maps.extension.compose.annotation.generated.PolygonAnnotation
-import com.mapbox.maps.extension.compose.annotation.generated.PolylineAnnotation
 import com.mapbox.maps.extension.compose.rememberMapState
 import com.mapbox.maps.extension.compose.style.ColorValue
 import com.mapbox.maps.extension.compose.style.DoubleValue
@@ -114,6 +110,8 @@ import com.mapbox.maps.plugin.locationcomponent.createDefault2DPuck
 import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.viewport.data.DefaultViewportTransitionOptions
 import com.mapbox.maps.plugin.viewport.data.FollowPuckViewportStateOptions
+import com.mapbox.search.SearchEngine
+import com.mapbox.search.SearchEngineSettings
 import kotlinx.coroutines.launch
 import org.simpleframework.xml.core.Persister
 import java.text.DecimalFormat
@@ -204,6 +202,11 @@ fun CycleMapView() {
     val routeLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
     val trackLayer: GeoJsonSourceState = rememberGeoJsonSourceState {}
     val styleDefinitions: List<StyleDefinition> = parseStyleDefinitions(context)
+
+    // geosearch
+    val searchEngine = SearchEngine.createSearchEngine(SearchEngineSettings())
+    var showGeoSearch by remember { mutableStateOf(false) }
+
 
     // File handling
     val coroutineScope = rememberCoroutineScope()
@@ -612,22 +615,28 @@ fun CycleMapView() {
                 onBookmarkLocation = { point ->
                     showLocationDetails = false
                     mapViewportState.cameraState?.let { viewport ->
-                        val screenshot = mapView?.snapshot()
-                        favourites = favourites?.plus(
-                            Favourite(
-                                "My Location ${favourites?.size?.plus(1)}",
-                                getFormattedDateTime(),
-                                point.longitude(),
-                                point.latitude(),
-                                viewport.zoom,
-                                image = screenshot?.cropAroundCenter(
-                                    clickedScreenCoordinate?.x!!.toInt(),
-                                    clickedScreenCoordinate?.y!!.toInt(),
-                                    context.resources.getInteger(R.integer.favourites_thumbnail_size),
-                                    context.resources.getInteger(R.integer.favourites_thumbnail_size),
-                                ),
-                            )
+                        val screenshot = mapView?.snapshot()?.cropAroundCenter(
+                            clickedScreenCoordinate?.x!!.toInt(),
+                            clickedScreenCoordinate?.y!!.toInt(),
+                            context.resources.getInteger(R.integer.favourites_thumbnail_size),
+                            context.resources.getInteger(R.integer.favourites_thumbnail_size),
                         )
+                        lookupGeolocation(
+                            point,
+                            searchEngine,
+                            coroutineScope,
+                        ) { name, description ->
+                            favourites = favourites?.plus(
+                                Favourite(
+                                    name,
+                                    description,
+                                    point.longitude(),
+                                    point.latitude(),
+                                    viewport.zoom,
+                                    image = screenshot,
+                                )
+                            )
+                        }
                     }
                 },
                 onShareLocation = { point, shareTemplateId ->
@@ -812,6 +821,7 @@ fun CycleMapView() {
 
             SmallFloatingActionButton(
                 onClick = {
+                    showGeoSearch = true
                 },
             ) {
                 Icon(Icons.Filled.Search, stringResource(R.string.button_search_desc))
@@ -937,6 +947,18 @@ fun CycleMapView() {
 
         if (showRoute) {
             RouteStatistics(routeDistance, waypointCount, windowInsets)
+        }
+
+        if (showGeoSearch) {
+            clickedPoint?.let {
+                GeoSearchSheet(
+                    searchEngine,
+                    it,
+                    onDismiss = {
+                        showGeoSearch = false
+                    },
+                )
+            }
         }
     }
 

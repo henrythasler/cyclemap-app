@@ -141,14 +141,9 @@ fun Bitmap.cropAroundCenter(
     val top = (centerY.coerceIn(halfHeight, this.height - halfHeight) - halfHeight).coerceAtLeast(0)
     val right =
         (centerX.coerceIn(halfWidth, this.width - halfWidth) + halfWidth).coerceAtMost(width)
-    val bottom = (centerY.coerceIn(halfHeight, this.height - halfHeight) + halfHeight).coerceAtMost(height)
+    val bottom =
+        (centerY.coerceIn(halfHeight, this.height - halfHeight) + halfHeight).coerceAtMost(height)
 
     // Create the cropped bitmap
-    return Bitmap.createBitmap(
-        this,
-        left,
-        top,
-        right - left,
-        bottom - top
-    ).asImageBitmap()
+    return Bitmap.createBitmap(this, left, top, right - left, bottom - top).asImageBitmap()
 }

@@ -77,4 +77,5 @@ dependencies {
     implementation(libs.maps.android)
     implementation(libs.maps.compose)
     implementation(libs.mapbox.sdk.turf)
+    implementation(libs.mapbox.search.android)
 }
