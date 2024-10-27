@@ -821,7 +821,7 @@ fun CycleMapView() {
 
             SmallFloatingActionButton(
                 onClick = {
-                    showGeoSearch = true
+                    showGeoSearch = !showGeoSearch
                 },
             ) {
                 Icon(Icons.Filled.Search, stringResource(R.string.button_search_desc))
@@ -950,14 +950,15 @@ fun CycleMapView() {
         }
 
         if (showGeoSearch) {
-            GeoSearchSheet(
+            GeoSearchOverlay(
                 mapViewportState.cameraState?.center,
                 searchEngine,
+                windowInsets,
                 onDismiss = {
                     showGeoSearch = false
                 },
                 onSelect = { point ->
-                    showGeoSearch = false
+//                    showGeoSearch = false
                     mapViewportState.setCameraOptions { center(point) }
                 }
             )

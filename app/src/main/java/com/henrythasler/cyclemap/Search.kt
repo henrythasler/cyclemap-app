@@ -3,11 +3,21 @@ package com.henrythasler.cyclemap
 import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -17,18 +27,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.geojson.Point
+import com.mapbox.search.QueryType
 import com.mapbox.search.ResponseInfo
 import com.mapbox.search.ReverseGeoOptions
 import com.mapbox.search.SearchCallback
 import com.mapbox.search.SearchEngine
+import com.mapbox.search.SearchEngineSettings
 import com.mapbox.search.SearchOptions
 import com.mapbox.search.SearchSelectionCallback
 import com.mapbox.search.SearchSuggestionsCallback
@@ -94,6 +110,145 @@ fun ReverseGeocodingExample(
         Text("Error: $error")
     } else {
         Text("Searching...")
+    }
+}
+
+@Composable
+fun GeoSearchOverlay(
+    point: Point? = null,
+    searchEngine: SearchEngine = SearchEngine.createSearchEngine(SearchEngineSettings()),
+    windowInsets: PaddingValues,
+    onDismiss: () -> Unit = {},
+    onSelect: (Point) -> Unit = {},
+) {
+    val padding = 8.dp
+    var text by remember { mutableStateOf("") }
+    var searchSuggestions by remember { mutableStateOf<List<SearchSuggestion>>(listOf()) }
+    var selected by remember { mutableStateOf<SearchSuggestion?>(null) }
+
+    ElevatedCard(
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 6.dp
+        ),
+        modifier = Modifier
+            .padding(windowInsets)
+            .padding(padding)
+    ) {
+        Icon(
+            modifier = Modifier
+                .align(Alignment.End)
+                .clickable { onDismiss() },
+            painter = painterResource(id = R.drawable.baseline_close_24),
+            contentDescription = null
+        )
+        OutlinedTextField(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(padding, 0.dp, padding, padding),
+            value = text,
+            onValueChange = { text = it },
+            label = { Text("Search") }
+        )
+        LazyColumn {
+            searchSuggestions.forEach { searchSuggestion ->
+                Log.d(TAG, searchSuggestion.type.toString())
+                item {
+                    Row(
+                        modifier = Modifier
+                            .padding(padding, 0.dp, padding, padding)
+                            .clickable {
+                                selected = searchSuggestion
+                            },
+                    ) {
+                        Column {
+                            Text(
+                                fontWeight = FontWeight.Bold,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                text = searchSuggestion.name
+                            )
+                            searchSuggestion.fullAddress?.let {
+                                Text(
+                                    fontStyle = FontStyle.Italic,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis,
+                                    text = it,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        LaunchedEffect(text) {
+            if (text.length >= 3) {
+                withContext(Dispatchers.IO) {
+                    searchEngine.search(
+                        text,
+                        SearchOptions(
+                            limit = 5,
+                            proximity = point,
+                            countries = listOf(
+                                IsoCountryCode.GERMANY,
+                                IsoCountryCode.AUSTRIA,
+                                IsoCountryCode.SWITZERLAND
+                            ),
+                            languages = listOf(
+                                IsoLanguageCode.GERMAN
+                            ),
+                        ),
+                        object : SearchSuggestionsCallback {
+                            override fun onSuggestions(
+                                suggestions: List<SearchSuggestion>,
+                                responseInfo: ResponseInfo
+                            ) {
+                                searchSuggestions = suggestions
+                            }
+
+                            override fun onError(e: Exception) {
+                                Log.e(TAG, e.toString())
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
+        LaunchedEffect(selected) {
+            selected?.let {
+                withContext(Dispatchers.IO) {
+                    searchEngine.select(it,
+                        object : SearchSelectionCallback {
+                            override fun onResult(
+                                suggestion: SearchSuggestion,
+                                result: SearchResult,
+                                responseInfo: ResponseInfo
+                            ) {
+                                Log.d(TAG, result.address.toString())
+                                onSelect(result.coordinate)
+                            }
+
+                            override fun onSuggestions(
+                                suggestions: List<SearchSuggestion>,
+                                responseInfo: ResponseInfo
+                            ) {
+                            }
+
+                            override fun onResults(
+                                suggestion: SearchSuggestion,
+                                results: List<SearchResult>,
+                                responseInfo: ResponseInfo
+                            ) {
+                            }
+
+                            override fun onError(e: Exception) {
+                                Log.e(TAG, e.message.toString())
+                            }
+                        })
+                }
+            }
+        }
     }
 }
 
