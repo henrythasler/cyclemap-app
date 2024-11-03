@@ -5,15 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,17 +23,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.geojson.Point
-import com.mapbox.search.QueryType
 import com.mapbox.search.ResponseInfo
 import com.mapbox.search.ReverseGeoOptions
 import com.mapbox.search.SearchCallback
@@ -51,9 +48,12 @@ import com.mapbox.search.SearchSuggestionsCallback
 import com.mapbox.search.common.IsoCountryCode
 import com.mapbox.search.common.IsoLanguageCode
 import com.mapbox.search.result.SearchResult
+import com.mapbox.search.result.SearchResultType
 import com.mapbox.search.result.SearchSuggestion
+import com.mapbox.search.result.SearchSuggestionType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -118,13 +118,20 @@ fun GeoSearchOverlay(
     point: Point? = null,
     searchEngine: SearchEngine = SearchEngine.createSearchEngine(SearchEngineSettings()),
     windowInsets: PaddingValues,
+    searchHistory: String,
     onDismiss: () -> Unit = {},
-    onSelect: (Point) -> Unit = {},
+    onSelect: (Point, String) -> Unit = { _: Point, _: String -> },
 ) {
     val padding = 8.dp
-    var text by remember { mutableStateOf("") }
     var searchSuggestions by remember { mutableStateOf<List<SearchSuggestion>>(listOf()) }
     var selected by remember { mutableStateOf<SearchSuggestion?>(null) }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var searchString by remember { mutableStateOf(searchHistory) }
+
+    // Create a FocusRequester to programmatically request focus
+    val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    var hasInputFocus by remember { mutableStateOf(false) }
 
     ElevatedCard(
         elevation = CardDefaults.cardElevation(
@@ -144,48 +151,91 @@ fun GeoSearchOverlay(
         OutlinedTextField(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(padding, 0.dp, padding, padding),
-            value = text,
-            onValueChange = { text = it },
+                .padding(padding, 0.dp, padding, padding)
+                .focusRequester(focusRequester)
+                // Use onFocusChanged to track focus state
+                .onFocusChanged { focusState ->
+                    hasInputFocus = focusState.isFocused
+                },
+            value = searchString,
+            onValueChange = {
+                searchString = it
+            },
             label = { Text("Search") }
         )
-        LazyColumn {
-            searchSuggestions.forEach { searchSuggestion ->
-                Log.d(TAG, searchSuggestion.type.toString())
-                item {
-                    Row(
-                        modifier = Modifier
-                            .padding(padding, 0.dp, padding, padding)
-                            .clickable {
-                                selected = searchSuggestion
-                            },
-                    ) {
-                        Column {
-                            Text(
-                                fontWeight = FontWeight.Bold,
-                                softWrap = false,
-                                overflow = TextOverflow.Ellipsis,
-                                text = searchSuggestion.name
-                            )
-                            searchSuggestion.fullAddress?.let {
-                                Text(
-                                    fontStyle = FontStyle.Italic,
-                                    softWrap = false,
-                                    overflow = TextOverflow.Ellipsis,
-                                    text = it,
+
+        LaunchedEffect(Unit) {
+            delay(100)
+            focusRequester.requestFocus()
+        }
+
+        if (/*hasInputFocus && */ (searchString.length >= 3)) {
+            if (searchSuggestions.isNotEmpty()) {
+                LazyColumn {
+                    searchSuggestions.forEach { searchSuggestion ->
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .padding(padding, 0.dp, padding, padding)
+                                    .clickable {
+                                        keyboardController?.hide()
+                                        selected = searchSuggestion
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Log.d(TAG, searchSuggestion.type.toString())
+                                val resourceId =
+                                    when ((searchSuggestion.type as SearchSuggestionType.SearchResultSuggestion).types.firstOrNull()) {
+                                        SearchResultType.PLACE -> R.drawable.baseline_location_city_24
+                                        SearchResultType.LOCALITY -> R.drawable.baseline_location_city_24
+                                        SearchResultType.POSTCODE -> R.drawable.baseline_home_work_24
+                                        SearchResultType.COUNTRY -> R.drawable.baseline_flag_24
+                                        SearchResultType.ADDRESS -> R.drawable.baseline_signpost_24
+                                        SearchResultType.REGION -> R.drawable.baseline_outlined_flag_24
+                                        SearchResultType.DISTRICT -> R.drawable.baseline_outlined_flag_24
+                                        else -> R.drawable.baseline_location_pin_24
+                                    }
+                                Icon(
+                                    modifier = Modifier
+                                        .padding(0.dp, 0.dp, padding, 0.dp)
+                                        .scale(1.5F),
+                                    painter = painterResource(id = resourceId),
+                                    contentDescription = null
                                 )
+                                Column {
+                                    Text(
+                                        fontWeight = FontWeight.Bold,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis,
+                                        text = searchSuggestion.name
+                                    )
+                                    searchSuggestion.fullAddress?.let {
+                                        Text(
+                                            fontStyle = FontStyle.Italic,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis,
+                                            text = it,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
+            } else {
+                Text(
+                    modifier = Modifier.padding(padding),
+                    fontStyle = FontStyle.Italic,
+                    text = "no results"
+                )
             }
         }
 
-        LaunchedEffect(text) {
-            if (text.length >= 3) {
+        LaunchedEffect(searchString) {
+            if (searchString.length >= 3) {
                 withContext(Dispatchers.IO) {
                     searchEngine.search(
-                        text,
+                        searchString,
                         SearchOptions(
                             limit = 5,
                             proximity = point,
@@ -214,7 +264,6 @@ fun GeoSearchOverlay(
                 }
             }
         }
-
         LaunchedEffect(selected) {
             selected?.let {
                 withContext(Dispatchers.IO) {
@@ -225,8 +274,9 @@ fun GeoSearchOverlay(
                                 result: SearchResult,
                                 responseInfo: ResponseInfo
                             ) {
+                                focusManager.clearFocus()
                                 Log.d(TAG, result.address.toString())
-                                onSelect(result.coordinate)
+                                onSelect(result.coordinate, searchString)
                             }
 
                             override fun onSuggestions(

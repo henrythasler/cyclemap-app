@@ -206,6 +206,7 @@ fun CycleMapView() {
     // geosearch
     val searchEngine = SearchEngine.createSearchEngine(SearchEngineSettings())
     var showGeoSearch by remember { mutableStateOf(false) }
+    var searchHistory by remember { mutableStateOf("") }
 
 
     // File handling
@@ -954,10 +955,12 @@ fun CycleMapView() {
                 mapViewportState.cameraState?.center,
                 searchEngine,
                 windowInsets,
+                searchHistory,
                 onDismiss = {
                     showGeoSearch = false
                 },
-                onSelect = { point ->
+                onSelect = { point, searchString ->
+                    searchHistory = searchString
 //                    showGeoSearch = false
                     mapViewportState.setCameraOptions { center(point) }
                 }
