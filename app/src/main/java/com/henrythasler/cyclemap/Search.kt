@@ -31,8 +31,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
@@ -125,6 +127,7 @@ fun GeoSearchOverlay(
     val padding = 8.dp
     var searchSuggestions by remember { mutableStateOf<List<SearchSuggestion>>(listOf()) }
     var selected by remember { mutableStateOf<SearchSuggestion?>(null) }
+    var selectedId by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
     var searchString by remember { mutableStateOf(searchHistory) }
 
@@ -132,6 +135,13 @@ fun GeoSearchOverlay(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     var hasInputFocus by remember { mutableStateOf(false) }
+
+    val textFieldValue = remember(searchString) {
+        TextFieldValue(
+            text = searchString,
+            selection = TextRange(searchString.length) // Places cursor at end
+        )
+    }
 
     ElevatedCard(
         elevation = CardDefaults.cardElevation(
@@ -148,21 +158,25 @@ fun GeoSearchOverlay(
             painter = painterResource(id = R.drawable.baseline_close_24),
             contentDescription = null
         )
-        OutlinedTextField(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(padding, 0.dp, padding, padding)
-                .focusRequester(focusRequester)
-                // Use onFocusChanged to track focus state
-                .onFocusChanged { focusState ->
-                    hasInputFocus = focusState.isFocused
+        if(selectedId.isEmpty()) {
+            OutlinedTextField(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(padding, 0.dp, padding, padding)
+                    .focusRequester(focusRequester)
+                    // Use onFocusChanged to track focus state
+                    .onFocusChanged { focusState ->
+                        hasInputFocus = focusState.isFocused
+                        selectedId = if (hasInputFocus) "" else selectedId
+                    },
+                value = textFieldValue,
+                onValueChange = { newValue ->
+                    searchString = newValue.text
+                    selectedId = ""
                 },
-            value = searchString,
-            onValueChange = {
-                searchString = it
-            },
-            label = { Text("Search") }
-        )
+                label = { Text("Search") }
+            )
+        }
 
         LaunchedEffect(Unit) {
             delay(100)
@@ -173,49 +187,58 @@ fun GeoSearchOverlay(
             if (searchSuggestions.isNotEmpty()) {
                 LazyColumn {
                     searchSuggestions.forEach { searchSuggestion ->
-                        item {
-                            Row(
-                                modifier = Modifier
-                                    .padding(padding, 0.dp, padding, padding)
-                                    .clickable {
-                                        keyboardController?.hide()
-                                        selected = searchSuggestion
-                                    },
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Log.d(TAG, searchSuggestion.type.toString())
-                                val resourceId =
-                                    when ((searchSuggestion.type as SearchSuggestionType.SearchResultSuggestion).types.firstOrNull()) {
-                                        SearchResultType.PLACE -> R.drawable.baseline_location_city_24
-                                        SearchResultType.LOCALITY -> R.drawable.baseline_location_city_24
-                                        SearchResultType.POSTCODE -> R.drawable.baseline_home_work_24
-                                        SearchResultType.COUNTRY -> R.drawable.baseline_flag_24
-                                        SearchResultType.ADDRESS -> R.drawable.baseline_signpost_24
-                                        SearchResultType.REGION -> R.drawable.baseline_outlined_flag_24
-                                        SearchResultType.DISTRICT -> R.drawable.baseline_outlined_flag_24
-                                        else -> R.drawable.baseline_location_pin_24
-                                    }
-                                Icon(
+                        if(selectedId.isEmpty() || selectedId == searchSuggestion.id) {
+                            item {
+                                Row(
                                     modifier = Modifier
-                                        .padding(0.dp, 0.dp, padding, 0.dp)
-                                        .scale(1.5F),
-                                    painter = painterResource(id = resourceId),
-                                    contentDescription = null
-                                )
-                                Column {
-                                    Text(
-                                        fontWeight = FontWeight.Bold,
-                                        softWrap = false,
-                                        overflow = TextOverflow.Ellipsis,
-                                        text = searchSuggestion.name
+                                        .padding(padding, 0.dp, padding, padding)
+                                        .clickable {
+                                            if(selectedId.isEmpty()) {
+                                                keyboardController?.hide()
+                                                selectedId = searchSuggestion.id
+                                                Log.d(TAG, "selected: $selectedId")
+                                                selected = searchSuggestion
+                                            }
+                                            else {
+                                                selectedId = ""
+                                            }
+                                        },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Log.d(TAG, searchSuggestion.type.toString())
+                                    val resourceId =
+                                        when ((searchSuggestion.type as SearchSuggestionType.SearchResultSuggestion).types.firstOrNull()) {
+                                            SearchResultType.PLACE -> R.drawable.baseline_location_city_24
+                                            SearchResultType.LOCALITY -> R.drawable.baseline_location_city_24
+                                            SearchResultType.POSTCODE -> R.drawable.baseline_home_work_24
+                                            SearchResultType.COUNTRY -> R.drawable.baseline_flag_24
+                                            SearchResultType.ADDRESS -> R.drawable.baseline_signpost_24
+                                            SearchResultType.REGION -> R.drawable.baseline_outlined_flag_24
+                                            SearchResultType.DISTRICT -> R.drawable.baseline_outlined_flag_24
+                                            else -> R.drawable.baseline_location_pin_24
+                                        }
+                                    Icon(
+                                        modifier = Modifier
+                                            .padding(0.dp, 0.dp, padding, 0.dp)
+                                            .scale(1.5F),
+                                        painter = painterResource(id = resourceId),
+                                        contentDescription = null
                                     )
-                                    searchSuggestion.fullAddress?.let {
+                                    Column {
                                         Text(
-                                            fontStyle = FontStyle.Italic,
+                                            fontWeight = FontWeight.Bold,
                                             softWrap = false,
                                             overflow = TextOverflow.Ellipsis,
-                                            text = it,
+                                            text = searchSuggestion.name
                                         )
+                                        searchSuggestion.fullAddress?.let {
+                                            Text(
+                                                fontStyle = FontStyle.Italic,
+                                                softWrap = false,
+                                                overflow = TextOverflow.Ellipsis,
+                                                text = it,
+                                            )
+                                        }
                                     }
                                 }
                             }

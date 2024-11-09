@@ -18,12 +18,12 @@ An Android app for offline usage of vector-tiles
 - [x] Record current track; Show while recording; Show metadata (length, time, ...)
 - [x] Save recorded track as GPX
 - [x] Show current speed while tracking
-- [.] Graceful handling of device orientation changes
+- [x] Graceful handling of device orientation changes
 - [x] clear current track
 - [x] Save Measurement as GPX
 - [x] Share map position (Link, Text)
 - [x] Favorite locations (add, delete, fly-to)
-- [.] Geo Search; POI search 
+- [x] Geo Search; POI search 
 - [x] Persist map style over lifecycles
 - [ ] Remove last measurement point on crosshair long-press
 
