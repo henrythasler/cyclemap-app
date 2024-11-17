@@ -1,5 +1,4 @@
 package com.henrythasler.cyclemap
-
 import android.Manifest
 import android.content.ComponentName
 import android.content.Context
@@ -28,14 +27,12 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -84,6 +81,7 @@ import com.mapbox.android.gestures.MoveGestureDetector
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.geojson.Polygon
+import com.mapbox.maps.MapLoadingError
 import com.mapbox.maps.MapView
 import com.mapbox.maps.MapboxExperimental
 import com.mapbox.maps.RenderedQueryGeometry
@@ -150,6 +148,7 @@ fun CycleMapView() {
         mutableStateOf(emptyList<List<Point>>())
     }
 
+    var mapboxAccessError by remember { mutableStateOf<MapLoadingError?>(null) }
     var isVisible by remember { mutableStateOf(false) }
     var trackLocations by remember { mutableStateOf<List<Location>>(emptyList()) }
     var showRoute by remember { mutableStateOf(false) }
@@ -1008,30 +1007,32 @@ fun CycleMapView() {
         }
     }
 
+    LaunchedEffect(mapState) {
+        mapState.apply {
+            launch {
+                mapLoadingErrorEvents.collect { error ->
+                    Log.e(TAG, error.message)
+                    mapboxAccessError = error
+                }
+            }
+        }
+    }
+
+    if (mapboxAccessError != null) {
+        ShowMessage(
+            message = "Error loading MapBox resource: $mapboxAccessError",
+            onConfirm = { mapboxAccessError = null }
+        )
+    }
+
     if (showAbout) {
-        AlertDialog(
-            title = {
-                Text(text = "CycleMap")
-            },
-            text = {
-                val sdk = Build.VERSION.SDK_INT // SDK version
+        val sdk = Build.VERSION.SDK_INT // SDK version
 //                val versionName = BuildConfig.VERSION_NAME // App version name from BuildConfig
 //                val packageName = BuildConfig.APPLICATION_ID // App package name from BuildConfig
 //                val build = BuildConfig.VERSION_CODE // Build type (debug/release) from BuildConfig
-                Text(text = "API $sdk")
-            },
-            onDismissRequest = {
-                showAbout = false
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showAbout = false
-                    }
-                ) {
-                    Text("OK")
-                }
-            }
+        ShowMessage(
+            message = "API $sdk",
+            onConfirm = { showAbout = false }
         )
     }
 }

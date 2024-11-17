@@ -1,6 +1,14 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+}
+
+fun getApiKey(): String {
+    val properties = Properties()
+    properties.load(rootProject.file("local.properties").inputStream())
+    return "\"${properties.getProperty("MAPBOX_ACCESS_TOKEN")}\""
 }
 
 android {
@@ -18,6 +26,7 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        buildConfigField("String", "MAPBOX_ACCESS_TOKEN", getApiKey())
     }
 
     buildTypes {
@@ -37,6 +46,7 @@ android {
         jvmTarget = "1.8"
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
     composeOptions {

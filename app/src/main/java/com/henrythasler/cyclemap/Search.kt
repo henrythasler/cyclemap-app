@@ -130,6 +130,7 @@ fun GeoSearchOverlay(
     var selectedId by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
     var searchString by remember { mutableStateOf(searchHistory) }
+    var mapboxAccessError by remember { mutableStateOf<String?>(null) }
 
     // Create a FocusRequester to programmatically request focus
     val focusRequester = remember { FocusRequester() }
@@ -280,7 +281,8 @@ fun GeoSearchOverlay(
                             }
 
                             override fun onError(e: Exception) {
-                                Log.e(TAG, e.toString())
+                                Log.e(TAG, "Error accessing MapBox resources: ${e.message}")
+                                mapboxAccessError = e.message.toString()
                             }
                         }
                     )
@@ -316,12 +318,20 @@ fun GeoSearchOverlay(
                             }
 
                             override fun onError(e: Exception) {
-                                Log.e(TAG, e.message.toString())
+                                Log.e(TAG, "Error accessing MapBox resources: ${e.message}")
+                                mapboxAccessError = e.message.toString()
                             }
                         })
                 }
             }
         }
+    }
+
+    if (mapboxAccessError != null) {
+        ShowMessage(
+            message = "Error loading MapBox resource: $mapboxAccessError",
+            onConfirm = { mapboxAccessError = null }
+        )
     }
 }
 
