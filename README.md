@@ -1,29 +1,34 @@
 # Cyclemap App
-An Android app for offline usage of vector-tiles
 
-![Screen sample](app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png)
+An Android app optimized for high contrast and local feature for hiking, biking and other outdoor activities.
 
 ![Screen sample](docs/screenshot.png)
 
 
-## Refactor for Version 2
+## Refactor for Version 3
 
 ### Features
 
-- [x] Use latest mapbox SDK (10.x)
+- [x] Use latest mapbox SDK (11.x)
 - [x] Save/restore last camera position
-- [x] User location
-- [ ] Geosearch
-- [x] Crosshair
-- [x] map options (scale, hillshading, style select)
-- [x] Distance measurement
-- [x] Record/show track; 
-- [x] track statistics
+- [x] Show current location using Mapbox puck when location tracking is enabled
+- [x] Crosshair centered on map and zoom on crosshair center
+- [x] Interactive polyline distance measurement when clicking the crosshair
+- [x] Change map style (Cyclemap, Shadow, X-Ray, Mapbox, Satellite, ...)
+- [x] Load/show route (GPX) and metadata
+- [x] Record current track; Show while recording; Show metadata (length, time, ...)
+- [x] Save recorded track as GPX
+- [x] Show current speed while tracking
+- [x] Graceful handling of device orientation changes
 - [x] clear current track
-- [ ] Share map position
-- [x] Load/show route (GPX)
-- [ ] Inspect element
-- [ ] cache management (clear, invalidate)
+- [x] Save Measurement as GPX
+- [x] Share map position (Link, Text)
+- [x] Favorite locations (add, delete, fly-to)
+- [x] Geo Search; POI search 
+- [x] Persist map style over lifecycles
+- [ ] Remove last measurement point on crosshair long-press
+
+> x=done .=in progress 
 
 ## References
 

@@ -7,12 +7,13 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="colorDistanceMeasurement">#F44336</color>
-    <color name="colorRoute">#F44336</color>
-
-    <color name="map_background">#f6f4e7</color>
-    <color name="map_water">#7babcd</color>
-    <color name="map_building">#444</color>
-    <color name="locationActive">#8BC34A</color>
-    <color name="colorTrack">#89FF00</color>
+    <color name="distanceMeasurementLine">#F44336</color>
+    <color name="distanceMeasurementLineCasing">#F6F4E7</color>
+    <color name="routeLine">#F44336</color>
+    <color name="routeLineCasing">#F6F4E7</color>
+    <color name="trackLine">#46DD0A</color>
+    <color name="trackLineCasing">#F6F4E7</color>
+    <color name="distanceMeasurementBadgeBackground">#BFF6F4E7</color>
+    <color name="annotationBackground">#E6F6F4E7</color>
+    <color name="locationActiveTint">#38AF09</color>
 </resources>

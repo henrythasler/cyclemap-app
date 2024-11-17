@@ -1,13 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <integer name="DESIRED_AMBIENT_CACHE_SIZE">500000000</integer>
-    <string name="DEFAULT_LONGITUDE">10.85</string>
-    <string name="DEFAULT_LATITUDE">48.05</string>
-    <string name="DEFAULT_ZOOM">12.0</string>
-    <string name="CYCLEMAP_STYLE_URL">https://www.cyclemap.link/cyclemap-style.json</string>
-    <string name="SHADOW_STYLE_URL">https://www.cyclemap.link/shadow-style.json</string>
-    <string name="XRAY_STYLE_URL">https://www.cyclemap.link/xray-style.json</string>
-    <string name="STATE_LATITUDE">latitude</string>
-    <string name="STATE_LONGITUDE">longitude</string>
-    <string name="STATE_ZOOM">zoom</string>
+<!-- Map Position -->
+    <item name="zoom_name" type="string">zoom</item>
+    <item name="zoom_default" type="string">12.0</item>
+    <item name="longitude_name" type="string">longitude</item>
+    <item name="longitude_default" type="string">10.85</item>
+    <item name="latitude_name" type="string">latitude</item>
+    <item name="latitude_default" type="string">48.05</item>
+    <item name="storage_path_name" type="string">storage_path</item>
+    <item name="style_name" type="string">style</item>
+    <item name="style_default" type="string">cyclemap</item>
+
+<!-- Location Service Configuration -->
+    <item name="location_update_interval_ms" type="integer">1000</item>
+
+<!-- Template Strings -->
+    <string name="share_position_link_cyclemap">https://cyclemap.link/#%1$s/%2$s/%3$s</string>
+    <string name="share_position_link_google">https://www.google.com/maps?q=%2$s,%3$s&amp;z=%1$s</string>
+
+<!--    Favourites Settings    -->
+    <item name="favourites_thumbnail_size" type="integer">400</item>
 </resources>

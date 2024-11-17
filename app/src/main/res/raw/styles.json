@@ -1,0 +1,47 @@
+[
+  {
+    "styleName": "CycleMap",
+    "styleDescription": "A custom style optimized for hiking and biking.",
+    "styleId": "cyclemap",
+    "styleSource": "https://www.cyclemap.link/cyclemap-style.json",
+    "drawable": "map_preview_cyclemap"
+  },
+  {
+    "styleName": "Shadow",
+    "styleDescription": "Simplified grayscale.",
+    "styleId": "shadow",
+    "styleSource": "https://www.cyclemap.link/shadow-style.json",
+    "drawable": "map_preview_shadow"
+  },
+  {
+    "styleName": "X-Ray",
+    "styleDescription": "Debug view",
+    "styleId": "xray",
+    "styleSource": "https://www.cyclemap.link/xray-style.json",
+    "drawable": "map_preview_xray"
+  },
+  {
+    "styleName": "Mapbox Standard",
+    "styleId": "mapbox_standard",
+    "styleSource": "STANDARD",
+    "drawable": "map_preview_mapbox_standard"
+  },
+  {
+    "styleName": "Mapbox Outdoors",
+    "styleId": "mapbox_outdoors",
+    "styleSource": "OUTDOORS",
+    "drawable": "map_preview_mapbox_outdoors"
+  },
+  {
+    "styleName": "Mapbox Satellite",
+    "styleId": "mapbox_satellite",
+    "styleSource": "SATELLITE",
+    "drawable": "map_preview_mapbox_satellite"
+  },
+  {
+    "styleName": "Mapbox Traffic",
+    "styleId": "mapbox_traffic",
+    "styleSource": "TRAFFIC_DAY",
+    "drawable": "map_preview_mapbox_traffic"
+  }
+]
