@@ -1,4 +1,5 @@
 package com.henrythasler.cyclemap
+
 import android.Manifest
 import android.content.ComponentName
 import android.content.Context
@@ -1032,8 +1033,9 @@ fun CycleMapView() {
         val buildType = BuildConfig.BUILD_TYPE
         val buildDate = BuildConfig.BUILD_DATE
         val commitHash = BuildConfig.COMMIT_HASH
+        val branchName = BuildConfig.BRANCH_NAME
         ShowMessage(
-            message = "Package: $packageName\nVersion: $versionName ($buildType)\nDate: $buildDate\nCommit: #$commitHash${if(BuildConfig.GIT_LOCAL_CHANGES) "-dirty" else ""}\nAPI: $sdk",
+            message = "Package: $packageName\nVersion: $versionName ($buildType)\nDate: $buildDate\nBranch: $branchName\nCommit: #$commitHash${if (BuildConfig.GIT_LOCAL_CHANGES) "-dirty" else ""}\nAPI: $sdk",
             onConfirm = { showAbout = false }
         )
     }

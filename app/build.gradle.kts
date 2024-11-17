@@ -62,6 +62,16 @@ fun isGitClean(): Boolean {
     }
 }
 
+// Function to get current branch name
+fun getGitBranch(): String {
+    return try {
+        val process = Runtime.getRuntime().exec("git rev-parse --abbrev-ref HEAD")
+        process.inputStream.bufferedReader().readText().trim()
+    } catch (e: Exception) {
+        "unknown"
+    }
+}
+
 android {
     namespace = "com.henrythasler.cyclemap"
     compileSdk = 34
@@ -84,6 +94,7 @@ android {
 
         // Make version info available in BuildConfig
         buildConfigField("int", "BUILD_NUMBER", "${getBuildNumber()}")
+        buildConfigField("String", "BRANCH_NAME", "\"${getGitBranch()}\"")
         buildConfigField("String", "COMMIT_HASH", "\"${getCommitHash()}\"")
         buildConfigField("boolean", "GIT_LOCAL_CHANGES", "${!isGitClean()}")
         buildConfigField("String", "VERSION_NAME", "\"$versionName\"")
