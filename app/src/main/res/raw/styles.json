@@ -14,6 +14,13 @@
     "drawable": "map_preview_shadow"
   },
   {
+    "styleName": "Transport",
+    "styleDescription": "Simplified Public Transport Map",
+    "styleId": "transport",
+    "styleSource": "https://www.cyclemap.link/transport-style.json",
+    "drawable": "map_preview_transport"
+  },
+  {
     "styleName": "X-Ray",
     "styleDescription": "Debug view",
     "styleId": "xray",

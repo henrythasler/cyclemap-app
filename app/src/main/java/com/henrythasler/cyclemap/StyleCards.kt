@@ -58,7 +58,7 @@ fun StyleSelectionSheet(
                         .padding(padding)
                         .clip(RoundedCornerShape(padding))
                         .border(1.dp, Color.Black, shape = RoundedCornerShape(padding)),
-                    painter = painterResource(id = resourceId),
+                    painter = painterResource(id = if (resourceId > 0) resourceId else R.drawable.baseline_image_not_supported_100),
                     contentDescription = styleDefinition.styleName
                 )
                 Column(
