@@ -1,5 +1,6 @@
 # Cyclemap App
-An Android app for offline usage of vector-tiles
+
+An Android app optimized for high contrast and local feature for hiking, biking and other outdoor activities.
 
 ![Screen sample](docs/screenshot.png)
 

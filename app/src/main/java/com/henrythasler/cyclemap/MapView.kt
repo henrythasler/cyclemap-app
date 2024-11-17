@@ -1027,11 +1027,13 @@ fun CycleMapView() {
 
     if (showAbout) {
         val sdk = Build.VERSION.SDK_INT // SDK version
-//                val versionName = BuildConfig.VERSION_NAME // App version name from BuildConfig
-//                val packageName = BuildConfig.APPLICATION_ID // App package name from BuildConfig
-//                val build = BuildConfig.VERSION_CODE // Build type (debug/release) from BuildConfig
+        val versionName = BuildConfig.VERSION_NAME // App version name from BuildConfig
+        val packageName = BuildConfig.APPLICATION_ID // App package name from BuildConfig
+        val buildType = BuildConfig.BUILD_TYPE
+        val buildDate = BuildConfig.BUILD_DATE
+        val commitHash = BuildConfig.COMMIT_HASH
         ShowMessage(
-            message = "API $sdk",
+            message = "Package: $packageName\nVersion: $versionName ($buildType)\nDate: $buildDate\nCommit: #$commitHash${if(BuildConfig.GIT_LOCAL_CHANGES) "-dirty" else ""}\nAPI: $sdk",
             onConfirm = { showAbout = false }
         )
     }
