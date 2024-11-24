@@ -15,6 +15,12 @@ fun getApiKey(): String {
     return "\"${properties.getProperty("MAPBOX_ACCESS_TOKEN")}\""
 }
 
+fun getDownloadKey(): String {
+    val properties = Properties()
+    properties.load(rootProject.file("local.properties").inputStream())
+    return "\"${properties.getProperty("MAPBOX_DOWNLOADS_TOKEN")}\""
+}
+
 // Function to read the current build number
 fun getBuildNumber(): Int {
     val versionFile = rootProject.file("version.properties")
@@ -81,7 +87,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = 3
-        val versionMinor = 0
+        val versionMinor = 1
         versionName = "$versionCode.$versionMinor.${getBuildNumber()}"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -91,6 +97,7 @@ android {
 
         // provide access token
         buildConfigField("String", "MAPBOX_ACCESS_TOKEN", getApiKey())
+        buildConfigField("String", "MAPBOX_DOWNLOADS_TOKEN", getDownloadKey())
 
         // Make version info available in BuildConfig
         buildConfigField("int", "BUILD_NUMBER", "${getBuildNumber()}")
@@ -175,4 +182,5 @@ dependencies {
     implementation(libs.maps.compose)
     implementation(libs.mapbox.sdk.turf)
     implementation(libs.mapbox.search.android)
+    implementation(libs.mapbox.sdk.services)
 }

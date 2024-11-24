@@ -1,5 +1,7 @@
 [versions]
 agp = "8.5.2"
+mapboxSdkServices = "7.3.1"
+mapboxSdkTurf = "7.3.1"
 mapboxSearchAndroid = "2.5.1"
 maps = "11.7.0"
 kotlin = "1.9.0"
@@ -12,12 +14,8 @@ activityCompose = "1.9.1"
 composeBom = "2024.06.00"
 mapsCompose = "11.7.0"
 playServicesLocation = "21.3.0"
-mapboxSdkTurf = "5.9.0-alpha.1"
 simpleXml = "2.7.1"
 documentfile = "1.0.1"
-constraintlayout = "2.1.4"
-constraintlayoutCompose = "1.1.0-beta01"
-constraintlayoutVersion = "2.2.0-beta01"
 datastorePreferences = "1.1.1"
 
 [libraries]
@@ -35,6 +33,7 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+mapbox-sdk-services = { module = "com.mapbox.mapboxsdk:mapbox-sdk-services", version.ref = "mapboxSdkServices" }
 mapbox-search-android = { module = "com.mapbox.search:mapbox-search-android", version.ref = "mapboxSearchAndroid" }
 maps-android = { module = "com.mapbox.maps:android", version.ref = "maps" }
 maps-compose = { module = "com.mapbox.extension:maps-compose", version.ref = "mapsCompose" }
@@ -42,7 +41,6 @@ play-services-location = { group = "com.google.android.gms", name = "play-servic
 mapbox-sdk-turf = { group = "com.mapbox.mapboxsdk", name = "mapbox-sdk-turf", version.ref = "mapboxSdkTurf" }
 simple-xml = { group = "org.simpleframework", name = "simple-xml", version.ref = "simpleXml" }
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
-androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 androidx-constraintlayout-compose = { group = "androidx.constraintlayout", name = "constraintlayout-compose", version = "1.0.1" }
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version = "2.1.4" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }

@@ -866,6 +866,16 @@ fun CycleMapView() {
                                 contentDescription = stringResource(R.string.menu_gpx_save)
                             )
                         }
+                        SmallFloatingActionButton(
+                            onClick = {
+                                Log.i(TAG, "Requesting route calculation from ${distanceMeasurementPoints.first().coordinates()} to ${distanceMeasurementPoints.last().coordinates()}")
+                            },
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.baseline_directions_24),
+                                contentDescription = stringResource(R.string.menu_calculate_route)
+                            )
+                        }
                     }
                 }
             }
