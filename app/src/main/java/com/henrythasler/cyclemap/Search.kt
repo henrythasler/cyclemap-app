@@ -330,6 +330,7 @@ fun GeoSearchOverlay(
     if (mapboxAccessError != null) {
         ShowMessage(
             message = "Error loading MapBox resource: $mapboxAccessError",
+            data = null,
             onConfirm = { mapboxAccessError = null }
         )
     }

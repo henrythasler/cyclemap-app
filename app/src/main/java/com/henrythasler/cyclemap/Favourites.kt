@@ -6,11 +6,15 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.util.Base64
 import android.util.Log
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -34,6 +38,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -187,8 +192,8 @@ fun FavouritesSelectionContentList(
             12.0,
         ),
         Favourite(
-            "MyFavourite2",
-            "description text2",
+            "MyFavourite2 42342343423 fadfafdsf fdawdafwe xxxxxxxxx XXXXXXXXX WWWWWW",
+            "description text2 AAAAAAAAAAAAAA BBBBBBBBBBBB CCCCCCCCCCC DDDDDDDDDDDDDD",
             48.0,
             11.0,
             12.0,
@@ -221,14 +226,26 @@ fun FavouritesSelectionContentList(
                         )
                         Column(
                             modifier = Modifier
+                                // FIXME: find a better way
+                                .fillMaxWidth(0.8f)
                                 .padding(padding)
                         ) {
-                            Text(fontWeight = FontWeight.Bold, text = favourite.name)
-                            Text(text = favourite.description)
+                            Text(
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                fontWeight = FontWeight.Bold,
+                                text = favourite.name
+                            )
+                            Text(
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                text = favourite.description
+                            )
                         }
                     }
                     Icon(
                         modifier = Modifier
+                            .padding(padding)
                             .clickable { onRemove(favourite) },
                         painter = painterResource(id = R.drawable.baseline_delete_24),
                         contentDescription = stringResource(R.string.menu_fav_delete)

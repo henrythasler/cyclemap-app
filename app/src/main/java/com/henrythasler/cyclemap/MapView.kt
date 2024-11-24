@@ -1022,6 +1022,7 @@ fun CycleMapView() {
     if (mapboxAccessError != null) {
         ShowMessage(
             message = "Error loading MapBox resource: $mapboxAccessError",
+            data = null,
             onConfirm = { mapboxAccessError = null }
         )
     }
@@ -1035,7 +1036,16 @@ fun CycleMapView() {
         val commitHash = BuildConfig.COMMIT_HASH
         val branchName = BuildConfig.BRANCH_NAME
         ShowMessage(
-            message = "Package: $packageName\nVersion: $versionName ($buildType)\nDate: $buildDate\nBranch: $branchName\nCommit: #$commitHash${if (BuildConfig.GIT_LOCAL_CHANGES) "-dirty" else ""}\nAPI: $sdk",
+            message = null,
+//            message = "Package: $packageName\nVersion: $versionName ($buildType)\nDate: $buildDate\nBranch: $branchName\nCommit: #$commitHash${if (BuildConfig.GIT_LOCAL_CHANGES) "-dirty" else ""}\nAPI: $sdk",
+            data = mapOf(
+                "Package" to packageName,
+                "Version" to versionName,
+                "Date" to buildDate,
+                "Branch" to branchName,
+                "Commit" to "#$commitHash${if (BuildConfig.GIT_LOCAL_CHANGES) "-dirty" else ""}",
+                "API" to sdk.toString(),
+            ),
             onConfirm = { showAbout = false }
         )
     }

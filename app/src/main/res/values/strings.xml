@@ -4,7 +4,7 @@
     <string name="button_location_desc">Start location tracking</string>
     <string name="button_search_desc">Search for location or place</string>
     <string name="button_record_desc">Record track</string>
-    <string name="menu_map_style">Choose Map Style…</string>
+    <string name="menu_map_style">Map Style…</string>
     <string name="menu_gpx_load">Load GPX Route…</string>
     <string name="menu_delete_route">Clear Route</string>
     <string name="menu_gpx_save">Save Track as GPX…</string>

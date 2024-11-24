@@ -5,6 +5,7 @@ import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -160,7 +161,8 @@ fun DistanceBadge(distance: Double) {
 
 @Composable
 fun ShowMessage(
-    message: String,
+    message: String?,
+    data: Map<String, String>?,
     onConfirm: () -> Unit = { },
 ) {
     AlertDialog(
@@ -168,7 +170,17 @@ fun ShowMessage(
             Text(text = "CycleMap")
         },
         text = {
-            Text(message)
+            message?.let { Text(it) }
+            data?.let {
+                Column {
+                    it.forEach { (key, value) ->
+                        Row {
+                            Text(fontWeight = FontWeight.Bold, text = "$key: ")
+                            Text(text = value)
+                        }
+                    }
+                }
+            }
         },
         onDismissRequest = {
             onConfirm()
