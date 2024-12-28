@@ -263,11 +263,11 @@ fun GeoSearchOverlay(
                         SearchOptions(
                             limit = 5,
                             proximity = point,
-                            countries = listOf(
-                                IsoCountryCode.GERMANY,
-                                IsoCountryCode.AUSTRIA,
-                                IsoCountryCode.SWITZERLAND
-                            ),
+//                            countries = listOf(
+//                                IsoCountryCode.GERMANY,
+//                                IsoCountryCode.AUSTRIA,
+//                                IsoCountryCode.SWITZERLAND
+//                            ),
                             languages = listOf(
                                 IsoLanguageCode.GERMAN
                             ),
@@ -402,11 +402,11 @@ fun GeoSearchSheet(
                         SearchOptions(
                             limit = 5,
                             proximity = point,
-                            countries = listOf(
-                                IsoCountryCode.GERMANY,
-                                IsoCountryCode.AUSTRIA,
-                                IsoCountryCode.SWITZERLAND
-                            ),
+//                            countries = listOf(
+//                                IsoCountryCode.GERMANY,
+//                                IsoCountryCode.AUSTRIA,
+//                                IsoCountryCode.SWITZERLAND
+//                            ),
                             languages = listOf(
                                 IsoLanguageCode.GERMAN
                             )

@@ -150,6 +150,7 @@ fun CycleMapView() {
     }
 
     var mapboxAccessError by remember { mutableStateOf<MapLoadingError?>(null) }
+    var ignoreMapboxAccessError by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
     var trackLocations by remember { mutableStateOf<List<Location>>(emptyList()) }
     var showRoute by remember { mutableStateOf(false) }
@@ -1029,11 +1030,12 @@ fun CycleMapView() {
         }
     }
 
-    if (mapboxAccessError != null) {
+    if (mapboxAccessError != null && !ignoreMapboxAccessError) {
         ShowMessage(
             message = "Error loading MapBox resource: $mapboxAccessError",
             data = null,
-            onConfirm = { mapboxAccessError = null }
+            onConfirm = { mapboxAccessError = null },
+            onDismiss = { ignoreMapboxAccessError = true },
         )
     }
 

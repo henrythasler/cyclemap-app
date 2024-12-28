@@ -164,6 +164,7 @@ fun ShowMessage(
     message: String?,
     data: Map<String, String>?,
     onConfirm: () -> Unit = { },
+    onDismiss: () -> Unit = { },
 ) {
     AlertDialog(
         title = {
@@ -192,6 +193,15 @@ fun ShowMessage(
                 }
             ) {
                 Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    onDismiss()
+                }
+            ) {
+                Text("Ignore")
             }
         }
     )
