@@ -79,6 +79,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.henrythasler.cyclemap.MainActivity.Companion.TAG
 import com.mapbox.android.gestures.MoveGestureDetector
+import com.mapbox.common.MapboxOptions
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Point
 import com.mapbox.geojson.Polygon
@@ -870,6 +871,34 @@ fun CycleMapView() {
                         SmallFloatingActionButton(
                             onClick = {
                                 Log.i(TAG, "Requesting route calculation from ${distanceMeasurementPoints.first().coordinates()} to ${distanceMeasurementPoints.last().coordinates()}")
+                                getRoute(
+                                    mapboxAccessToken = BuildConfig.MAPBOX_ACCESS_TOKEN,
+                                    distanceMeasurementPoints,
+                                    onSuccess = { res ->
+                                        Log.d(TAG, res.toJson())
+                                        val route = res.routes().first()
+                                        route?.let { rte ->
+                                            rte.geometry()?.let { geom ->
+                                                // Decode into a LineString containing Points
+                                                val lineString = LineString.fromPolyline(geom, 6)
+
+                                                // via route layer
+                                                routeLayer.data = GeoJSONData(lineString)
+                                                waypointCount = lineString.coordinates().size
+                                                routeDistance = rte.distance()
+                                                showRoute = true
+
+                                                // via distance Measurement layer
+//                                                distanceMeasurementPoints = lineString.coordinates()
+//                                                val points = distanceMeasurementPoints.toMutableList()
+//                                                distanceMeasurementLayer.data = GeoJSONData(LineString.fromLngLats(points))
+                                            }
+                                        }
+                                    },
+                                    onError = { res ->
+                                        Log.d(TAG, res.toString())
+                                    },
+                                )
                             },
                         ) {
                             Icon(
